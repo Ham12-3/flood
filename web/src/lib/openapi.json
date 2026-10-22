@@ -1,0 +1,1080 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FloodScope 3D API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Api Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/point": {
+      "get": {
+        "summary": "Point",
+        "description": "Everything we know about one point: elevation, river flow, hazard depths, UK gauges.",
+        "operationId": "point_api_point_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "description": "Latitude, WGS84 degrees",
+              "title": "Lat"
+            },
+            "description": "Latitude, WGS84 degrees"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "description": "Longitude, WGS84 degrees",
+              "title": "Lon"
+            },
+            "description": "Longitude, WGS84 degrees"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PointResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/geocode": {
+      "get": {
+        "summary": "Geocode",
+        "operationId": "geocode_api_geocode_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 100,
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeocodeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DischargeDay": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "discharge": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discharge",
+            "description": "GloFAS consolidated/forecast value, m3/s"
+          },
+          "ensemble_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ensemble Mean"
+          },
+          "ensemble_median": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ensemble Median"
+          },
+          "ensemble_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ensemble Min"
+          },
+          "ensemble_max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ensemble Max"
+          },
+          "ensemble_p25": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ensemble P25"
+          },
+          "ensemble_p75": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ensemble P75"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "discharge",
+          "ensemble_mean",
+          "ensemble_median",
+          "ensemble_min",
+          "ensemble_max",
+          "ensemble_p25",
+          "ensemble_p75"
+        ],
+        "title": "DischargeDay"
+      },
+      "EAReading": {
+        "properties": {
+          "parameter": {
+            "type": "string",
+            "title": "Parameter"
+          },
+          "qualifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualifier"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale",
+            "description": "True if the latest reading is over 24 hours old or missing"
+          }
+        },
+        "type": "object",
+        "required": [
+          "parameter",
+          "qualifier",
+          "unit",
+          "value",
+          "time",
+          "stale"
+        ],
+        "title": "EAReading"
+      },
+      "EAStation": {
+        "properties": {
+          "reference": {
+            "type": "string",
+            "title": "Reference"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "river": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "River"
+          },
+          "town": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Town"
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "distance_km": {
+            "type": "number",
+            "title": "Distance Km"
+          },
+          "station_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Station Types"
+          },
+          "typical_range_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Typical Range Low"
+          },
+          "typical_range_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Typical Range High"
+          },
+          "max_on_record": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max On Record"
+          },
+          "max_on_record_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max On Record Time"
+          },
+          "readings": {
+            "items": {
+              "$ref": "#/components/schemas/EAReading"
+            },
+            "type": "array",
+            "title": "Readings"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reference",
+          "label",
+          "river",
+          "town",
+          "lat",
+          "lon",
+          "distance_km",
+          "station_types",
+          "typical_range_low",
+          "typical_range_high",
+          "max_on_record",
+          "max_on_record_time",
+          "readings",
+          "url"
+        ],
+        "title": "EAStation"
+      },
+      "EAWarning": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "area": {
+            "type": "string",
+            "title": "Area"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity"
+          },
+          "severity_level": {
+            "type": "integer",
+            "title": "Severity Level"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "time_raised": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Raised"
+          },
+          "river_or_sea": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "River Or Sea"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "area",
+          "severity",
+          "severity_level",
+          "message",
+          "time_raised",
+          "river_or_sea"
+        ],
+        "title": "EAWarning"
+      },
+      "Elevation": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "elevation_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation M"
+          },
+          "tile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tile"
+          },
+          "cell_size_m": {
+            "anyOf": [
+              {
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cell Size M",
+            "description": "(east-west, north-south) pixel size in metres at this latitude"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": "Surface model: includes buildings and trees, so may sit above the bare ground."
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "elevation_m",
+          "tile",
+          "cell_size_m",
+          "note",
+          "source"
+        ],
+        "title": "Elevation"
+      },
+      "FloodHazard": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "tile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tile"
+          },
+          "depths": {
+            "items": {
+              "$ref": "#/components/schemas/HazardDepth"
+            },
+            "type": "array",
+            "title": "Depths"
+          },
+          "permanent_water": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permanent Water"
+          },
+          "spurious_depth_area": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spurious Depth Area",
+            "description": "JRC flags this area as having possibly unrealistic depths (>10 m in small channels). Treat depths here with caution."
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": "Modelled without flood defences (walls, barriers, levees), so protected areas can show water that defences would normally hold back."
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "tile",
+          "depths",
+          "permanent_water",
+          "spurious_depth_area",
+          "note",
+          "source"
+        ],
+        "title": "FloodHazard"
+      },
+      "GeocodeResponse": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/Place"
+            },
+            "type": "array",
+            "title": "Results"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "results",
+          "source"
+        ],
+        "title": "GeocodeResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HazardDepth": {
+        "properties": {
+          "return_period": {
+            "type": "integer",
+            "enum": [
+              10,
+              20,
+              50,
+              75,
+              100,
+              200,
+              500
+            ],
+            "title": "Return Period"
+          },
+          "depth_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depth M",
+            "description": "Water depth; null when the cell stays dry"
+          },
+          "flooded": {
+            "type": "boolean",
+            "title": "Flooded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "return_period",
+          "depth_m",
+          "flooded"
+        ],
+        "title": "HazardDepth"
+      },
+      "Place": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "admin1": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin1"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "lat",
+          "lon",
+          "country",
+          "admin1"
+        ],
+        "title": "Place"
+      },
+      "PointResponse": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "Estimates for exploration. Not an official flood warning."
+          },
+          "elevation": {
+            "$ref": "#/components/schemas/Elevation"
+          },
+          "river": {
+            "$ref": "#/components/schemas/RiverDischarge"
+          },
+          "hazard": {
+            "$ref": "#/components/schemas/FloodHazard"
+          },
+          "uk_live": {
+            "$ref": "#/components/schemas/UKLive"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lon",
+          "generated_at",
+          "disclaimer",
+          "elevation",
+          "river",
+          "hazard",
+          "uk_live"
+        ],
+        "title": "PointResponse"
+      },
+      "RiverDischarge": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "grid_lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grid Lat",
+            "description": "Centre of the GloFAS cell used"
+          },
+          "grid_lon": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grid Lon"
+          },
+          "offset_km": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offset Km",
+            "description": "Distance from the clicked point to the GloFAS cell used"
+          },
+          "searched_offsets": {
+            "type": "boolean",
+            "title": "Searched Offsets",
+            "description": "True when the clicked cell had no river and we looked nearby",
+            "default": false
+          },
+          "today": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DischargeDay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "forecast": {
+            "items": {
+              "$ref": "#/components/schemas/DischargeDay"
+            },
+            "type": "array",
+            "title": "Forecast"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "grid_lat",
+          "grid_lon",
+          "offset_km",
+          "searched_offsets",
+          "today",
+          "forecast",
+          "source"
+        ],
+        "title": "RiverDischarge"
+      },
+      "SourceInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "resolution": {
+            "type": "string",
+            "title": "Resolution"
+          },
+          "data_date": {
+            "type": "string",
+            "title": "Data Date",
+            "description": "Version, issue date or reading time of the data"
+          },
+          "licence": {
+            "type": "string",
+            "title": "Licence"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Retrieved At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "provider",
+          "url",
+          "resolution",
+          "data_date",
+          "licence",
+          "retrieved_at"
+        ],
+        "title": "SourceInfo",
+        "description": "Where a number came from. Shown under every value in the UI."
+      },
+      "UKLive": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "stations": {
+            "items": {
+              "$ref": "#/components/schemas/EAStation"
+            },
+            "type": "array",
+            "title": "Stations"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/EAWarning"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "search_radius_km": {
+            "type": "number",
+            "title": "Search Radius Km"
+          },
+          "official_url": {
+            "type": "string",
+            "title": "Official Url",
+            "default": "https://check-for-flooding.service.gov.uk/"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "stations",
+          "warnings",
+          "search_radius_km",
+          "official_url",
+          "source"
+        ],
+        "title": "UKLive"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

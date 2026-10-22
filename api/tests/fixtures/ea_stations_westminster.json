@@ -1,0 +1,104 @@
+{ 
+  "@context" : "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld" ,
+  "meta" : { 
+    "publisher" : "Environment Agency" ,
+    "licence" : "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" ,
+    "documentation" : "http://environment.data.gov.uk/flood-monitoring/doc/reference" ,
+    "version" : "0.9" ,
+    "comment" : "Status: Beta service" ,
+    "hasFormat" : [ "http://environment.data.gov.uk/flood-monitoring/id/stations.csv?lat=51.50050&long=-0.12180&dist=5.0", "http://environment.data.gov.uk/flood-monitoring/id/stations.rdf?lat=51.50050&long=-0.12180&dist=5.0", "http://environment.data.gov.uk/flood-monitoring/id/stations.ttl?lat=51.50050&long=-0.12180&dist=5.0", "http://environment.data.gov.uk/flood-monitoring/id/stations.html?lat=51.50050&long=-0.12180&dist=5.0" ]
+  }
+   ,
+  "items" : [ { 
+    "@id" : "http://environment.data.gov.uk/flood-monitoring/id/stations/0006" ,
+    "RLOIid" : "7389" ,
+    "catchmentName" : "London" ,
+    "dateOpened" : "1989-01-03" ,
+    "easting" : 530320 ,
+    "label" : "Westminster" ,
+    "lat" : 51.501216 ,
+    "long" : -0.12385 ,
+    "measures" : [ { 
+      "@id" : "http://environment.data.gov.uk/flood-monitoring/id/measures/0006-level-tidal_level-i-15_min-mAOD" ,
+      "parameter" : "level" ,
+      "parameterName" : "Water Level" ,
+      "period" : 900 ,
+      "qualifier" : "Tidal Level" ,
+      "unitName" : "mAOD"
+    }
+    , { 
+      "@id" : "http://environment.data.gov.uk/flood-monitoring/id/measures/0006-level-tidal_level-i-1_min-mAOD" ,
+      "parameter" : "level" ,
+      "parameterName" : "Water Level" ,
+      "period" : 60 ,
+      "qualifier" : "Tidal Level" ,
+      "unitName" : "mAOD"
+    }
+     ] ,
+    "northing" : 179700 ,
+    "notation" : "0006" ,
+    "riverName" : "Thames Tideway" ,
+    "stageScale" : "http://environment.data.gov.uk/flood-monitoring/id/stations/0006/stageScale" ,
+    "stationReference" : "0006" ,
+    "status" : "http://environment.data.gov.uk/flood-monitoring/def/core/statusActive" ,
+    "town" : "Westminster" ,
+    "wiskiID" : "4250TH"
+  }
+  , { 
+    "@id" : "http://environment.data.gov.uk/flood-monitoring/id/stations/0007" ,
+    "RLOIid" : "7391" ,
+    "catchmentName" : "London" ,
+    "dateOpened" : "1988-01-01" ,
+    "easting" : 533437 ,
+    "label" : "Tower Pier" ,
+    "lat" : 51.506753 ,
+    "long" : -0.078706 ,
+    "measures" : [ { 
+      "@id" : "http://environment.data.gov.uk/flood-monitoring/id/measures/0007-level-tidal_level-i-15_min-mAOD" ,
+      "parameter" : "level" ,
+      "parameterName" : "Water Level" ,
+      "period" : 900 ,
+      "qualifier" : "Tidal Level" ,
+      "unitName" : "mAOD"
+    }
+    , { 
+      "@id" : "http://environment.data.gov.uk/flood-monitoring/id/measures/0007-level-tidal_level-i-1_min-mAOD" ,
+      "parameter" : "level" ,
+      "parameterName" : "Water Level" ,
+      "period" : 60 ,
+      "qualifier" : "Tidal Level" ,
+      "unitName" : "mAOD"
+    }
+     ] ,
+    "northing" : 180397 ,
+    "notation" : "0007" ,
+    "riverName" : "Thames Tideway" ,
+    "stageScale" : "http://environment.data.gov.uk/flood-monitoring/id/stations/0007/stageScale" ,
+    "stationReference" : "0007" ,
+    "status" : "http://environment.data.gov.uk/flood-monitoring/def/core/statusActive" ,
+    "town" : "Tower Pier" ,
+    "wiskiID" : "4270TH"
+  }
+  , { 
+    "@id" : "http://environment.data.gov.uk/flood-monitoring/id/stations/4230TH" ,
+    "easting" : 528572 ,
+    "gridReference" : "TQ2857277742" ,
+    "label" : "Chelsea TL" ,
+    "lat" : 51.48402 ,
+    "long" : -0.149732 ,
+    "measures" : [ { 
+      "@id" : "http://environment.data.gov.uk/flood-monitoring/id/measures/4230TH-level-tidal_level-i-15_min-mAOD" ,
+      "parameter" : "level" ,
+      "parameterName" : "Water Level" ,
+      "period" : 900 ,
+      "qualifier" : "Tidal Level" ,
+      "unitName" : "mAOD"
+    }
+     ] ,
+    "northing" : 177742 ,
+    "notation" : "4230TH" ,
+    "stationReference" : "4230TH"
+  }
+   ]
+}
+

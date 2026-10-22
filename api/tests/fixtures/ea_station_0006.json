@@ -1,0 +1,88 @@
+{ 
+  "@context" : "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld" ,
+  "meta" : { 
+    "publisher" : "Environment Agency" ,
+    "licence" : "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" ,
+    "documentation" : "http://environment.data.gov.uk/flood-monitoring/doc/reference" ,
+    "version" : "0.9" ,
+    "comment" : "Status: Beta service" ,
+    "hasFormat" : [ "http://environment.data.gov.uk/flood-monitoring/id/stations/0006.rdf", "http://environment.data.gov.uk/flood-monitoring/id/stations/0006.ttl", "http://environment.data.gov.uk/flood-monitoring/id/stations/0006.html" ]
+  }
+   ,
+  "items" : { 
+    "@id" : "http://environment.data.gov.uk/flood-monitoring/id/stations/0006" ,
+    "RLOIid" : "7389" ,
+    "catchmentName" : "London" ,
+    "dateOpened" : "1989-01-03" ,
+    "eaAreaName" : "Thames - Kent and South London" ,
+    "eaRegionName" : "Thames" ,
+    "easting" : 530320 ,
+    "label" : "Westminster" ,
+    "lat" : 51.501216 ,
+    "long" : -0.12385 ,
+    "measures" : [ { 
+      "@id" : "http://environment.data.gov.uk/flood-monitoring/id/measures/0006-level-tidal_level-i-15_min-mAOD" ,
+      "datumType" : "http://environment.data.gov.uk/flood-monitoring/def/core/datumAOD" ,
+      "label" : "Westminster - level-tidal_level-i-15_min-mAOD" ,
+      "latestReading" : { 
+        "@id" : "http://environment.data.gov.uk/flood-monitoring/data/readings/0006-level-tidal_level-i-15_min-mAOD/2026-10-21T17-45-00Z" ,
+        "date" : "2026-10-21" ,
+        "dateTime" : "2026-10-21T17:45:00Z" ,
+        "measure" : "http://environment.data.gov.uk/flood-monitoring/id/measures/0006-level-tidal_level-i-15_min-mAOD" ,
+        "value" : -1.8
+      }
+       ,
+      "notation" : "0006-level-tidal_level-i-15_min-mAOD" ,
+      "parameter" : "level" ,
+      "parameterName" : "Water Level" ,
+      "period" : 900 ,
+      "qualifier" : "Tidal Level" ,
+      "station" : "http://environment.data.gov.uk/flood-monitoring/id/stations/0006" ,
+      "stationReference" : "0006" ,
+      "type" : [ "http://environment.data.gov.uk/flood-monitoring/def/core/Measure", "http://environment.data.gov.uk/flood-monitoring/def/core/WaterLevel" ] ,
+      "unit" : "http://qudt.org/1.1/vocab/unit#Meter" ,
+      "unitName" : "mAOD" ,
+      "valueType" : "instantaneous"
+    }
+    , { 
+      "@id" : "http://environment.data.gov.uk/flood-monitoring/id/measures/0006-level-tidal_level-i-1_min-mAOD" ,
+      "datumType" : "http://environment.data.gov.uk/flood-monitoring/def/core/datumAOD" ,
+      "label" : "Westminster - level-tidal_level-i-1_min-mAOD" ,
+      "latestReading" : "http://environment.data.gov.uk/flood-monitoring/data/readings/0006-level-tidal_level-i-1_min-mAOD/2023-03-16T13-16-00Z" ,
+      "notation" : "0006-level-tidal_level-i-1_min-mAOD" ,
+      "parameter" : "level" ,
+      "parameterName" : "Water Level" ,
+      "period" : 60 ,
+      "qualifier" : "Tidal Level" ,
+      "station" : "http://environment.data.gov.uk/flood-monitoring/id/stations/0006" ,
+      "stationReference" : "0006" ,
+      "type" : [ "http://environment.data.gov.uk/flood-monitoring/def/core/Measure", "http://environment.data.gov.uk/flood-monitoring/def/core/WaterLevel" ] ,
+      "unit" : "http://qudt.org/1.1/vocab/unit#Meter" ,
+      "unitName" : "mAOD" ,
+      "valueType" : "instantaneous"
+    }
+     ] ,
+    "northing" : 179700 ,
+    "notation" : "0006" ,
+    "riverName" : "Thames Tideway" ,
+    "stageScale" : { 
+      "@id" : "http://environment.data.gov.uk/flood-monitoring/id/stations/0006/stageScale" ,
+      "datum" : 0 ,
+      "maxOnRecord" : { 
+        "@id" : "http://environment.data.gov.uk/flood-monitoring/id/stations/0006/stageScale/maxOnRecord" ,
+        "dateTime" : "1999-02-18T15:30:00" ,
+        "value" : 4.81
+      }
+       ,
+      "scaleMax" : 5
+    }
+     ,
+    "stationReference" : "0006" ,
+    "status" : "http://environment.data.gov.uk/flood-monitoring/def/core/statusActive" ,
+    "statusDate" : "2017-08-14T09:00:00" ,
+    "town" : "Westminster" ,
+    "type" : [ "http://environment.data.gov.uk/flood-monitoring/def/core/Coastal", "http://environment.data.gov.uk/flood-monitoring/def/core/Station" ] ,
+    "wiskiID" : "4250TH"
+  }
+}
+

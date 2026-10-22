@@ -1,0 +1,21 @@
+# Local backend in a container. The web app runs with `npm run dev` (and deploys to Vercel).
+services:
+  api:
+    build: ./api
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      FLOODSCOPE_CACHE_DIR: /data/cache
+    volumes:
+      - floodscope-cache:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  floodscope-cache:

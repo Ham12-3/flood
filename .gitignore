@@ -1,0 +1,21 @@
+.env
+.env.local
+.env.*.local
+
+# Python
+api/.venv/
+api/.cache/
+__pycache__/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Node / Next
+web/node_modules/
+web/.next/
+web/out/
+web/public/cesium/
+web/next-env.d.ts
+*.tsbuildinfo
+
+.DS_Store
