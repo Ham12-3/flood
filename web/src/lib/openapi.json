@@ -153,6 +153,310 @@
         }
       }
     },
+    "/api/ground": {
+      "get": {
+        "summary": "Ground",
+        "description": "Soil moisture in four layers against its 2000-present range, and groundwater.",
+        "operationId": "ground_api_ground_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "description": "Latitude, WGS84 degrees",
+              "title": "Lat"
+            },
+            "description": "Latitude, WGS84 degrees"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "description": "Longitude, WGS84 degrees",
+              "title": "Lon"
+            },
+            "description": "Longitude, WGS84 degrees"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroundResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/predict": {
+      "get": {
+        "summary": "Predict",
+        "description": "AI discharge forecast for days 1-7 at the point's river, with flood-map scenarios.",
+        "operationId": "predict_api_predict_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "description": "Latitude, WGS84 degrees",
+              "title": "Lat"
+            },
+            "description": "Latitude, WGS84 degrees"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "description": "Longitude, WGS84 degrees",
+              "title": "Lon"
+            },
+            "description": "Longitude, WGS84 degrees"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/explain": {
+      "post": {
+        "summary": "Explain Point",
+        "description": "Plain-English explanation from Claude, using only numbers from FloodScope's tools.",
+        "operationId": "explain_point_api_explain_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExplainResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/google-flood": {
+      "get": {
+        "summary": "Google Flood",
+        "description": "Google Flood Hub gauges near the point (feature flag: needs a waitlist API key).",
+        "operationId": "google_flood_api_google_flood_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "description": "Latitude, WGS84 degrees",
+              "title": "Lat"
+            },
+            "description": "Latitude, WGS84 degrees"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "description": "Longitude, WGS84 degrees",
+              "title": "Lon"
+            },
+            "description": "Longitude, WGS84 degrees"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleFloodResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/satellite": {
+      "get": {
+        "summary": "Satellite",
+        "description": "Prithvi water maps from Sentinel-2 that cover this point (made offline by the ML job).",
+        "operationId": "satellite_api_satellite_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "description": "Latitude, WGS84 degrees",
+              "title": "Lat"
+            },
+            "description": "Latitude, WGS84 degrees"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "description": "Longitude, WGS84 degrees",
+              "title": "Lon"
+            },
+            "description": "Longitude, WGS84 degrees"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SatelliteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/satellite/{result_id}/overlay.png": {
+      "get": {
+        "summary": "Satellite Overlay",
+        "operationId": "satellite_overlay_api_satellite__result_id__overlay_png_get",
+        "parameters": [
+          {
+            "name": "result_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Result Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/geocode": {
       "get": {
         "summary": "Geocode",
@@ -661,6 +965,142 @@
         ],
         "title": "Elevation"
       },
+      "ExplainRequest": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lon"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "units": {
+            "type": "string",
+            "enum": [
+              "metric",
+              "imperial"
+            ],
+            "title": "Units",
+            "default": "metric"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lon"
+        ],
+        "title": "ExplainRequest"
+      },
+      "ExplainResponse": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "Estimates for exploration. Not an official flood warning."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "tools_used": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tools Used"
+          },
+          "unverified_numbers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unverified Numbers",
+            "description": "Numbers in the answer that do not appear in any tool result. Shown to the user as a warning."
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lon",
+          "generated_at",
+          "disclaimer",
+          "status",
+          "reason",
+          "answer",
+          "model",
+          "tools_used",
+          "unverified_numbers"
+        ],
+        "title": "ExplainResponse"
+      },
       "FloodHazard": {
         "properties": {
           "status": {
@@ -884,6 +1324,493 @@
         ],
         "title": "GeocodeResponse"
       },
+      "GoogleFloodResponse": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "gauges": {
+            "items": {
+              "$ref": "#/components/schemas/GoogleGauge"
+            },
+            "type": "array",
+            "title": "Gauges"
+          },
+          "search_radius_km": {
+            "type": "number",
+            "title": "Search Radius Km"
+          },
+          "official_url": {
+            "type": "string",
+            "title": "Official Url",
+            "default": "https://sites.research.google/floods/"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lon",
+          "status",
+          "reason",
+          "gauges",
+          "search_radius_km",
+          "official_url",
+          "source"
+        ],
+        "title": "GoogleFloodResponse"
+      },
+      "GoogleForecastValue": {
+        "properties": {
+          "start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "value"
+        ],
+        "title": "GoogleForecastValue"
+      },
+      "GoogleGauge": {
+        "properties": {
+          "gauge_id": {
+            "type": "string",
+            "title": "Gauge Id"
+          },
+          "site_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Name"
+          },
+          "river": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "River"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "distance_km": {
+            "type": "number",
+            "title": "Distance Km"
+          },
+          "quality_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quality Verified"
+          },
+          "has_model": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Model"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity",
+            "description": "EXTREME, SEVERE, ABOVE_NORMAL, NO_FLOODING or UNKNOWN"
+          },
+          "trend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trend",
+            "description": "RISE, FALL or NO_CHANGE"
+          },
+          "issued_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued Time"
+          },
+          "forecast_issued_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Issued Time"
+          },
+          "forecast": {
+            "items": {
+              "$ref": "#/components/schemas/GoogleForecastValue"
+            },
+            "type": "array",
+            "title": "Forecast",
+            "description": "Latest forecast; units are set by the gauge's model and not returned here"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gauge_id",
+          "site_name",
+          "river",
+          "source",
+          "lat",
+          "lon",
+          "distance_km",
+          "quality_verified",
+          "has_model",
+          "severity",
+          "trend",
+          "issued_time",
+          "forecast_issued_time",
+          "forecast"
+        ],
+        "title": "GoogleGauge"
+      },
+      "GroundResponse": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "Estimates for exploration. Not an official flood warning."
+          },
+          "soil": {
+            "$ref": "#/components/schemas/SoilBlock"
+          },
+          "groundwater": {
+            "$ref": "#/components/schemas/GroundwaterBlock"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lon",
+          "generated_at",
+          "disclaimer",
+          "soil",
+          "groundwater"
+        ],
+        "title": "GroundResponse"
+      },
+      "GroundwaterBlock": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "station": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GroundwaterStation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "search_radius_km": {
+            "type": "number",
+            "title": "Search Radius Km"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "station",
+          "search_radius_km",
+          "source"
+        ],
+        "title": "GroundwaterBlock"
+      },
+      "GroundwaterStation": {
+        "properties": {
+          "reference": {
+            "type": "string",
+            "title": "Reference"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "distance_km": {
+            "type": "number",
+            "title": "Distance Km"
+          },
+          "level_maod": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level Maod"
+          },
+          "time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale"
+          },
+          "datum_maod": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datum Maod",
+            "description": "Borehole datum (about ground level), m above Ordnance Datum"
+          },
+          "depth_below_datum_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depth Below Datum M"
+          },
+          "typical_range_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Typical Range Low"
+          },
+          "typical_range_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Typical Range High"
+          },
+          "max_on_record": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max On Record"
+          },
+          "min_on_record": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min On Record"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reference",
+          "label",
+          "lat",
+          "lon",
+          "distance_km",
+          "level_maod",
+          "time",
+          "stale",
+          "datum_maod",
+          "depth_below_datum_m",
+          "typical_range_low",
+          "typical_range_high",
+          "max_on_record",
+          "min_on_record",
+          "url"
+        ],
+        "title": "GroundwaterStation"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -970,6 +1897,67 @@
         ],
         "title": "HazardLayer"
       },
+      "LeadSkill": {
+        "properties": {
+          "lead": {
+            "type": "integer",
+            "title": "Lead"
+          },
+          "nse": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nse"
+          },
+          "kge": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kge"
+          },
+          "nse_persistence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nse Persistence"
+          },
+          "nse_glofas": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nse Glofas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lead",
+          "nse",
+          "kge",
+          "nse_persistence",
+          "nse_glofas"
+        ],
+        "title": "LeadSkill"
+      },
       "MapBlend": {
         "properties": {
           "lower": {
@@ -1011,6 +1999,76 @@
         ],
         "title": "MapBlend",
         "description": "Which hazard maps to show: lower + weight * (upper - lower), in log return period."
+      },
+      "ModelInfo": {
+        "properties": {
+          "run": {
+            "type": "string",
+            "title": "Run"
+          },
+          "dataset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset"
+          },
+          "train_basins": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Train Basins"
+          },
+          "held_out_basins": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Held Out Basins"
+          },
+          "skill": {
+            "items": {
+              "$ref": "#/components/schemas/LeadSkill"
+            },
+            "type": "array",
+            "title": "Skill",
+            "description": "Median skill on held-out basins, by lead time"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run",
+          "dataset",
+          "train_basins",
+          "held_out_basins",
+          "skill",
+          "note"
+        ],
+        "title": "ModelInfo"
       },
       "Place": {
         "properties": {
@@ -1104,6 +2162,254 @@
           "uk_live"
         ],
         "title": "PointResponse"
+      },
+      "PredictResponse": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "Estimates for exploration. Not an official flood warning."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "issue_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issue Date"
+          },
+          "grid_lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grid Lat"
+          },
+          "grid_lon": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grid Lon"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/PredictionDay"
+            },
+            "type": "array",
+            "title": "Days"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "title": "Method",
+            "default": "LSTM (NeuralHydrology) trained on Caravan basins. It forecasts flow as a ratio to the river's 1997-2010 mean, driven by ERA5 weather and soil for the past year and the ECMWF IFS forecast for the next 7 days at this point, plus GloFAS flow up to today. The ratio is scaled by this GloFAS cell's mean flow. The band is the 10th-90th percentile of errors on held-out basins."
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceInfo"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lon",
+          "generated_at",
+          "disclaimer",
+          "status",
+          "reason",
+          "issue_date",
+          "grid_lat",
+          "grid_lon",
+          "days",
+          "model",
+          "method",
+          "sources"
+        ],
+        "title": "PredictResponse"
+      },
+      "PredictionDay": {
+        "properties": {
+          "day": {
+            "type": "integer",
+            "title": "Day",
+            "description": "0 = today"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "discharge": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discharge",
+            "description": "Ensemble mean, or the main run if missing"
+          },
+          "discharge_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discharge Low",
+            "description": "Ensemble 25th percentile"
+          },
+          "discharge_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discharge High",
+            "description": "Ensemble 75th percentile"
+          },
+          "return_period": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Period"
+          },
+          "return_period_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Period Low"
+          },
+          "return_period_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Period High"
+          },
+          "maps": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MapBlend"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the flow is below the 1-in-10 map (in banks)"
+          },
+          "beyond_largest_map": {
+            "type": "boolean",
+            "title": "Beyond Largest Map",
+            "default": false
+          },
+          "glofas_discharge": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glofas Discharge",
+            "description": "GloFAS ensemble-mean forecast for the same day, m3/s"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "date",
+          "discharge",
+          "discharge_low",
+          "discharge_high",
+          "return_period",
+          "return_period_low",
+          "return_period_high",
+          "maps",
+          "beyond_largest_map",
+          "glofas_discharge"
+        ],
+        "title": "PredictionDay"
       },
       "ReturnPeriodFitInfo": {
         "properties": {
@@ -1209,6 +2515,18 @@
             ],
             "title": "Scale"
           },
+          "mean_flow": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Flow",
+            "description": "Mean daily flow 1997-01-01 to 2010-09-30, m3/s"
+          },
           "thresholds": {
             "items": {
               "$ref": "#/components/schemas/DischargeForRP"
@@ -1232,6 +2550,7 @@
           "n_years",
           "location",
           "scale",
+          "mean_flow",
           "thresholds",
           "source"
         ],
@@ -1334,6 +2653,149 @@
           "source"
         ],
         "title": "RiverDischarge"
+      },
+      "SatelliteResponse": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SatelliteResult"
+            },
+            "type": "array",
+            "title": "Results"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lon",
+          "status",
+          "reason",
+          "results",
+          "source"
+        ],
+        "title": "SatelliteResponse"
+      },
+      "SatelliteResult": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "scene_id": {
+            "type": "string",
+            "title": "Scene Id"
+          },
+          "datetime": {
+            "type": "string",
+            "title": "Datetime"
+          },
+          "cloud_cover": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cloud Cover"
+          },
+          "bounds": {
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Bounds",
+            "description": "west, south, east, north"
+          },
+          "water_fraction": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Water Fraction"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "overlay_url": {
+            "type": "string",
+            "title": "Overlay Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "scene_id",
+          "datetime",
+          "cloud_cover",
+          "bounds",
+          "water_fraction",
+          "model",
+          "note",
+          "overlay_url"
+        ],
+        "title": "SatelliteResult"
       },
       "SceneDem": {
         "properties": {
@@ -1625,6 +3087,220 @@
           "scenario_basis"
         ],
         "title": "SceneResponse"
+      },
+      "SoilBlock": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "value_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Date",
+            "description": "Date of the latest ERA5 day"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/SoilLayer"
+            },
+            "type": "array",
+            "title": "Layers"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "climatology_years": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Climatology Years"
+          },
+          "forecast_source": {
+            "$ref": "#/components/schemas/SourceInfo"
+          },
+          "climatology_source": {
+            "$ref": "#/components/schemas/SourceInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "value_date",
+          "layers",
+          "summary",
+          "climatology_years",
+          "forecast_source",
+          "climatology_source"
+        ],
+        "title": "SoilBlock"
+      },
+      "SoilLayer": {
+        "properties": {
+          "top_cm": {
+            "type": "integer",
+            "title": "Top Cm"
+          },
+          "bottom_cm": {
+            "type": "integer",
+            "title": "Bottom Cm"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value",
+            "description": "Latest ERA5 daily mean, m3/m3"
+          },
+          "season_percentile": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season Percentile",
+            "description": "Share of ERA5 days within 15 days of the same date in earlier years (2000 onwards) that were drier, 0-100"
+          },
+          "relative_wetness_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relative Wetness Pct",
+            "description": "Where the value sits between the driest and wettest of those days, 0-100. Not a true saturation: soil porosity is not known."
+          },
+          "season_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season Min"
+          },
+          "season_max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season Max"
+          },
+          "forecast": {
+            "items": {
+              "$ref": "#/components/schemas/SoilPoint"
+            },
+            "type": "array",
+            "title": "Forecast",
+            "description": "ECMWF IFS forecast (a different model; trend only)"
+          },
+          "forecast_change_7d": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Change 7D",
+            "description": "IFS change from today to 7 days ahead, m3/m3"
+          }
+        },
+        "type": "object",
+        "required": [
+          "top_cm",
+          "bottom_cm",
+          "value",
+          "season_percentile",
+          "relative_wetness_pct",
+          "season_min",
+          "season_max",
+          "forecast",
+          "forecast_change_7d"
+        ],
+        "title": "SoilLayer"
+      },
+      "SoilPoint": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value",
+            "description": "Volumetric soil water, m3/m3"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "value"
+        ],
+        "title": "SoilPoint"
       },
       "SourceInfo": {
         "properties": {

@@ -1,15 +1,18 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useRef, useState, useSyncExternalStore } from "react";
-import { fetchPoint, type Place, type PointResponse } from "@/lib/api";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { fetchGround, fetchPoint, type GroundResponse, type Place, type PointResponse } from "@/lib/api";
 import { formatLatLon } from "@/lib/format";
-import type { UnitSystem } from "@/lib/units";
+import { UndergroundScene } from "@/lib/underground/undergroundScene";
+import { formatLength, type UnitSystem } from "@/lib/units";
 import AboutDialog from "./AboutDialog";
+import AiSection from "./AiSection";
 import FloodView from "./FloodView";
 import type { GlobeHandle } from "./Globe";
 import PointPanel from "./PointPanel";
 import SearchBox from "./SearchBox";
+import UndergroundSection from "./UndergroundSection";
 
 // Cesium touches `window`, so the globe never renders on the server.
 const Globe = dynamic(() => import("./Globe"), { ssr: false });
@@ -66,6 +69,8 @@ export default function FloodScopeApp() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
   const [floodMode, setFloodMode] = useState(false);
+  const [ground, setGround] = useState<{ key: string; data: GroundResponse | null; error: string | null } | null>(null);
+  const [undergroundOn, setUndergroundOn] = useState(false);
   const getViewer = useCallback(() => globe.current?.getViewer() ?? null, []);
   const abort = useRef<AbortController | null>(null);
 
@@ -76,13 +81,35 @@ export default function FloodScopeApp() {
     abort.current?.abort();
     const ctrl = new AbortController();
     abort.current = ctrl;
+    setUndergroundOn(false);
     fetchPoint(sel.lat, sel.lon, ctrl.signal)
       .then((data) => setLoad({ state: "done", data }))
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setLoad({ state: "error", message: err instanceof Error ? err.message : String(err) });
       });
+    const key = `${sel.lat},${sel.lon}`;
+    fetchGround(sel.lat, sel.lon, ctrl.signal)
+      .then((data) => setGround({ key, data, error: null }))
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setGround({ key, data: null, error: err instanceof Error ? err.message : String(err) });
+      });
   }, []);
+
+  const groundKey = selected ? `${selected.lat},${selected.lon}` : null;
+  const groundNow = ground && ground.key === groundKey ? ground : null;
+
+  // Underground view: see-through globe, soil cut-away and water table.
+  const showUnderground = undergroundOn && !floodMode && groundNow?.data ? groundNow.data : null;
+  useEffect(() => {
+    if (!showUnderground || !selected) return;
+    const v = getViewer();
+    if (!v) return;
+    const scene = new UndergroundScene(v.C, v.viewer);
+    void scene.enter(selected.lat, selected.lon, showUnderground, (m) => formatLength(m, units));
+    return () => scene.exit();
+  }, [showUnderground, selected, getViewer, units]);
 
   const onPick = useCallback((lat: number, lon: number) => inspect({ lat, lon }), [inspect]);
 
@@ -148,6 +175,7 @@ export default function FloodScopeApp() {
               onClick={() => {
                 abort.current?.abort();
                 setFloodMode(false);
+                setUndergroundOn(false);
                 setSelected(null);
                 setLoad({ state: "idle" });
               }}
@@ -180,7 +208,26 @@ export default function FloodScopeApp() {
                 }}
               />
             ) : (
-              load.state === "done" && <PointPanel data={load.data} units={units} onOpen3D={() => setFloodMode(true)} />
+              load.state === "done" && (
+                <div className="space-y-3">
+                  <PointPanel
+                    data={load.data}
+                    units={units}
+                    onOpen3D={() => {
+                      setUndergroundOn(false);
+                      setFloodMode(true);
+                    }}
+                  />
+                  <AiSection lat={selected.lat} lon={selected.lon} units={units} />
+                  <UndergroundSection
+                    ground={groundNow?.data ?? null}
+                    error={groundNow?.error ?? null}
+                    units={units}
+                    undergroundOn={undergroundOn}
+                    onToggle={() => setUndergroundOn((on) => !on)}
+                  />
+                </div>
+              )
             )}
           </div>
         </aside>

@@ -1,6 +1,7 @@
 /** What the 3D view is showing. */
 export type Scenario =
   | { kind: "forecast"; day: number }
+  | { kind: "ai"; day: number }
   | { kind: "returnPeriod"; rp: number }
   | { kind: "custom"; rise: number };
 
@@ -29,6 +30,8 @@ export function scenarioKey(s: Scenario): string {
   switch (s.kind) {
     case "forecast":
       return `forecast:${s.day}`;
+    case "ai":
+      return `ai:${s.day}`;
     case "returnPeriod":
       return `rp:${s.rp}`;
     case "custom":

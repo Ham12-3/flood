@@ -1,6 +1,7 @@
 import { enuFrame, toEcef, toEnu } from "./geodesy";
 import { writeGlb } from "./glb";
 import type { SceneGrid } from "./sceneData";
+import { MIN_FLOOD_DEPTH_M } from "./stats";
 
 /**
  * Builds the water surface as a GLB in a local east-north-up frame.
@@ -46,7 +47,7 @@ export function buildWaterMesh({ grid, ground, depth, permanent, geoid }: WaterM
     if (!Number.isFinite(ground[i])) continue;
     groundSum += ground[i];
     groundCount++;
-    let d = depth[i];
+    let d = depth[i] >= MIN_FLOOD_DEPTH_M ? depth[i] : 0;
     if (!(d > 0) && permanent[i]) {
       d = PERMANENT_DISPLAY_DEPTH;
       kind[i] = 1;

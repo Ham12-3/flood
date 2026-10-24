@@ -17,9 +17,9 @@ export function forecastRequest(s: ForecastScenario): DepthRequest {
 }
 
 /** Plain-English summary of what a forecast day means and which maps are shown. */
-export function describeForecast(s: ForecastScenario, units: UnitSystem): string {
+export function describeForecast(s: ForecastScenario, units: UnitSystem, basis = "ensemble mean"): string {
   if (s.discharge === null || s.discharge === undefined) return "No forecast flow for this day.";
-  const flow = `${formatDischarge(s.discharge, units)} (ensemble mean)`;
+  const flow = `${formatDischarge(s.discharge, units)} (${basis})`;
   if (s.return_period === null || s.return_period === undefined) {
     return `Forecast flow ${flow}. No flood curve for this river, so it cannot be turned into a flood map.`;
   }
@@ -27,7 +27,7 @@ export function describeForecast(s: ForecastScenario, units: UnitSystem): string
     typeof s.return_period_low === "number" &&
     typeof s.return_period_high === "number" &&
     s.return_period_high - s.return_period_low >= 0.05
-      ? ` (middle 50% of the ensemble: ${formatReturnPeriod(s.return_period_low)} to ${formatReturnPeriod(s.return_period_high)})`
+      ? ` (${basis === "ensemble mean" ? "middle 50% of the ensemble" : "likely range"}: ${formatReturnPeriod(s.return_period_low)} to ${formatReturnPeriod(s.return_period_high)})`
       : "";
   const size = `about a ${formatReturnPeriod(s.return_period)} flow${range}`;
   if (!s.maps) {

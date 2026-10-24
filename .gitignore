@@ -19,3 +19,8 @@ web/next-env.d.ts
 *.tsbuildinfo
 
 .DS_Store
+
+# ML
+ml/.venv/
+ml/**/runs/
+ml/satellite_results/*/S2_*.tif

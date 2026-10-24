@@ -1,3 +1,6 @@
+/** Thinner water than this (e.g. a film of rain) is not counted or drawn as flooding. */
+export const MIN_FLOOD_DEPTH_M = 0.05;
+
 export interface FloodStats {
   /** Land newly under water, excluding permanent rivers and lakes. */
   floodedCells: number;
@@ -19,7 +22,7 @@ export function floodStats(depth: Float32Array, permanent: Uint8Array, cellAreaM
       continue;
     }
     const d = depth[i];
-    if (d > 0) {
+    if (d >= MIN_FLOOD_DEPTH_M) {
       flooded++;
       sum += d;
       if (d > max) max = d;

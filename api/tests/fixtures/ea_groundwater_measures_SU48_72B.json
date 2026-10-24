@@ -1,0 +1,50 @@
+{ 
+  "@context" : "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld" ,
+  "meta" : { 
+    "publisher" : "Environment Agency" ,
+    "licence" : "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" ,
+    "documentation" : "http://environment.data.gov.uk/flood-monitoring/doc/reference" ,
+    "version" : "0.9" ,
+    "comment" : "Status: Beta service" ,
+    "hasFormat" : [ "http://environment.data.gov.uk/flood-monitoring/id/measures.csv?stationReference=SU48_72B", "http://environment.data.gov.uk/flood-monitoring/id/measures.rdf?stationReference=SU48_72B", "http://environment.data.gov.uk/flood-monitoring/id/measures.ttl?stationReference=SU48_72B", "http://environment.data.gov.uk/flood-monitoring/id/measures.html?stationReference=SU48_72B" ]
+  }
+   ,
+  "items" : [ { 
+    "@id" : "http://environment.data.gov.uk/flood-monitoring/id/measures/SU48_72B-level-groundwater-i-1_h-mAOD" ,
+    "datumType" : "http://environment.data.gov.uk/flood-monitoring/def/core/datumAOD" ,
+    "label" : "HODCOTT 2 OBH - level-groundwater-i-1_h-mAOD" ,
+    "latestReading" : { 
+      "@id" : "http://environment.data.gov.uk/flood-monitoring/data/readings/SU48_72B-level-groundwater-i-1_h-mAOD/2026-10-24T05-00-00Z" ,
+      "date" : "2026-10-24" ,
+      "dateTime" : "2026-10-24T05:00:00Z" ,
+      "measure" : "http://environment.data.gov.uk/flood-monitoring/id/measures/SU48_72B-level-groundwater-i-1_h-mAOD" ,
+      "value" : 105.394
+    }
+     ,
+    "notation" : "SU48_72B-level-groundwater-i-1_h-mAOD" ,
+    "parameter" : "level" ,
+    "parameterName" : "Water Level" ,
+    "period" : 3600 ,
+    "qualifier" : "Groundwater" ,
+    "station" : "http://environment.data.gov.uk/flood-monitoring/id/stations/SU48_72B" ,
+    "stationReference" : "SU48_72B" ,
+    "unit" : "http://qudt.org/1.1/vocab/unit#Meter" ,
+    "unitName" : "mAOD" ,
+    "valueType" : "instantaneous"
+  }
+  , { 
+    "@id" : "http://environment.data.gov.uk/flood-monitoring/id/measures/SU48_72B-level-groundwater-i-1_h----" ,
+    "label" : "HODCOTT 2 OBH - level-groundwater-i-1_h----" ,
+    "notation" : "SU48_72B-level-groundwater-i-1_h----" ,
+    "parameter" : "level" ,
+    "parameterName" : "Water Level" ,
+    "period" : 3600 ,
+    "qualifier" : "Groundwater" ,
+    "station" : "http://environment.data.gov.uk/flood-monitoring/id/stations/SU48_72B" ,
+    "stationReference" : "SU48_72B" ,
+    "unitName" : "---" ,
+    "valueType" : "instantaneous"
+  }
+   ]
+}
+

@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -33,7 +34,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
 @pytest.mark.parametrize(
     "params", [{"lat": 91, "lon": 0}, {"lat": 0, "lon": 181}, {"lat": "x", "lon": 0}, {"lat": 1}]
 )
-def test_point_rejects_bad_coordinates(client: TestClient, params: dict[str, object]) -> None:
+def test_point_rejects_bad_coordinates(client: TestClient, params: dict[str, Any]) -> None:
     assert client.get("/api/point", params=params).status_code == 422
 
 

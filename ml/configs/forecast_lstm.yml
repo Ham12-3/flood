@@ -1,0 +1,51 @@
+# NeuralHydrology config for the FloodScope 1-7 day discharge forecast.
+# Paths are filled in by notebooks/train_colab.ipynb (see floodscope_ml.train.write_config).
+# Dynamic inputs and targets come from floodscope_ml.features so training and serving match.
+
+experiment_name: floodscope_forecast_lstm
+dataset: generic
+data_dir: PLACEHOLDER_DATA_DIR
+run_dir: PLACEHOLDER_RUN_DIR
+
+train_basin_file: PLACEHOLDER_TRAIN_BASINS
+validation_basin_file: PLACEHOLDER_TRAIN_BASINS   # temporal validation on training basins
+test_basin_file: PLACEHOLDER_TEST_BASINS          # held-out basins, never seen in training
+
+train_start_date: "01/10/1990"
+train_end_date: "30/09/2010"
+validation_start_date: "01/10/2010"
+validation_end_date: "30/09/2014"
+test_start_date: "01/10/1990"
+test_end_date: "30/09/2019"
+
+model: cudalstm
+head: regression
+hidden_size: 128
+initial_forget_bias: 3
+output_dropout: 0.4
+output_activation: linear
+
+optimizer: Adam
+learning_rate:
+  0: 1.0e-3
+  20: 5.0e-4
+  30: 1.0e-4
+loss: NSE
+clip_gradient_norm: 1
+batch_size: 256
+epochs: 40
+seq_length: 365
+predict_last_n: 1
+
+validate_every: 5
+validate_n_random_basins: 200
+metrics: [NSE, KGE]
+save_weights_every: 5
+save_validation_results: false
+log_interval: 10
+num_workers: 4
+device: cuda:0
+seed: 42
+
+dynamic_inputs: PLACEHOLDER_DYNAMIC_INPUTS
+target_variables: PLACEHOLDER_TARGETS

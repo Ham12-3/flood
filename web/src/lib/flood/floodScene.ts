@@ -62,6 +62,7 @@ export class FloodScene {
   private buildings: CesiumNS.Cesium3DTileset | null = null;
   private readonly buildingCells = new Map<string, number>();
   private depth: Float32Array | null = null;
+  private overlay: CesiumNS.ImageryLayer | null = null;
   private progress = 1;
   private maxDepth = 0;
   private destroyed = false;
@@ -232,6 +233,21 @@ export class FloodScene {
     this.refreshBuildings();
   }
 
+  /** Show a satellite water map (transparent PNG in lat/lon) over the terrain, or clear it. */
+  async setOverlay(url: string | null, bounds?: [number, number, number, number]): Promise<void> {
+    const { C, viewer } = this;
+    if (this.overlay) {
+      viewer.imageryLayers.remove(this.overlay, true);
+      this.overlay = null;
+    }
+    if (!url || !bounds || this.destroyed) return;
+    const provider = await C.SingleTileImageryProvider.fromUrl(url, {
+      rectangle: C.Rectangle.fromDegrees(...bounds),
+    });
+    if (this.destroyed) return;
+    this.overlay = viewer.imageryLayers.addImageryProvider(provider);
+  }
+
   /** 0 = water lowered by the deepest depth (hidden), 1 = final flood level. */
   setProgress(t: number): void {
     this.progress = Math.min(Math.max(t, 0), 1);
@@ -359,6 +375,7 @@ export class FloodScene {
     this.destroyed = true;
     const { C, viewer } = this;
     this.removeModel();
+    if (this.overlay) viewer.imageryLayers.remove(this.overlay, true);
     if (this.buildings) viewer.scene.primitives.remove(this.buildings);
     this.handler?.destroy();
     this.removeLeave?.();

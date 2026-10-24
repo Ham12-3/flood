@@ -14,7 +14,15 @@ from typing import Any
 import httpx
 
 from floodscope.geo import haversine_km, in_great_britain
-from floodscope.models import EAReading, EAStation, EAWarning, SourceInfo, UKLive
+from floodscope.models import (
+    EAReading,
+    EAStation,
+    EAWarning,
+    GroundwaterBlock,
+    GroundwaterStation,
+    SourceInfo,
+    UKLive,
+)
 
 STATION_RADIUS_KM = 5.0
 WARNING_RADIUS_KM = 10.0
@@ -195,4 +203,116 @@ async def get_uk_live(client: httpx.AsyncClient, base_url: str, lat: float, lon:
         warnings=warnings,
         search_radius_km=STATION_RADIUS_KM,
         source=source_info(latest),
+    )
+
+
+# --- Groundwater (Phase 3) -------------------------------------------------------
+
+GROUNDWATER_RADIUS_KM = 25.0
+GROUNDWATER_STALE_AFTER = timedelta(days=7)  # boreholes report hourly to daily
+
+
+def groundwater_source(latest: datetime | None = None) -> SourceInfo:
+    src = source_info(latest)
+    src.name = "Environment Agency groundwater levels"
+    src.resolution = "Point boreholes, readings hourly to daily"
+    return src
+
+
+def parse_groundwater(
+    station: dict[str, Any],
+    measures: list[dict[str, Any]],
+    scale: dict[str, Any],
+    lat: float,
+    lon: float,
+    now: datetime,
+) -> GroundwaterStation:
+    """Combine a station, its measures and its stage scale. Pure, so it is unit tested."""
+    ref = str(_first(station["stationReference"]))
+    s_lat = float(_first(station["lat"]))
+    s_lon = float(_first(station["long"]))
+    level: float | None = None
+    when: datetime | None = None
+    for m in measures:
+        latest = m.get("latestReading")
+        if m.get("unitName") == "mAOD" and isinstance(latest, dict):
+            t = _parse_time(latest.get("dateTime"))
+            if t and (when is None or t > when):
+                level, when = _float(latest.get("value")), t
+    datum = _float(scale.get("datum"))
+    return GroundwaterStation(
+        reference=ref,
+        label=str(_first(station.get("label")) or ref),
+        lat=s_lat,
+        lon=s_lon,
+        distance_km=round(haversine_km(lat, lon, s_lat, s_lon), 2),
+        level_maod=level,
+        time=when,
+        stale=when is None or now - when > GROUNDWATER_STALE_AFTER,
+        datum_maod=datum if datum else None,
+        depth_below_datum_m=round(datum - level, 2) if datum and level is not None else None,
+        typical_range_low=_float(scale.get("typicalRangeLow")),
+        typical_range_high=_float(scale.get("typicalRangeHigh")),
+        max_on_record=_float(_dict(scale.get("maxOnRecord")).get("value")),
+        min_on_record=_float(_dict(scale.get("minOnRecord")).get("value")),
+        url=f"https://check-for-flooding.service.gov.uk/station/{ref}",
+    )
+
+
+async def get_groundwater(
+    client: httpx.AsyncClient, base_url: str, lat: float, lon: float
+) -> GroundwaterBlock:
+    """Nearest EA borehole with a reading in the last week, within 25 km."""
+    if not in_great_britain(lat, lon):
+        return GroundwaterBlock(
+            status="no_data",
+            reason="Groundwater levels come from the Environment Agency, which covers England "
+            "only.",
+            search_radius_km=GROUNDWATER_RADIUS_KM,
+            source=groundwater_source(),
+        )
+    base = base_url.rstrip("/")
+    try:
+        stations = await _get_items(
+            client,
+            f"{base}/id/stations",
+            {"type": "Groundwater", "lat": f"{lat:.5f}", "long": f"{lon:.5f}",
+             "dist": str(GROUNDWATER_RADIUS_KM)},
+        )  # fmt: skip
+        stations = sorted(
+            (s for s in stations if s.get("lat") is not None and s.get("long") is not None),
+            key=lambda s: haversine_km(lat, lon, float(_first(s["lat"])), float(_first(s["long"]))),
+        )
+        now = datetime.now(UTC)
+        for s in stations[:8]:
+            ref = str(_first(s["stationReference"]))
+            measures = await _get_items(client, f"{base}/id/measures", {"stationReference": ref})
+            if not isinstance(measures, list) or not measures:
+                continue  # retired borehole
+            scale: dict[str, Any] = {}
+            if "/" not in ref:  # the stageScale path cannot address refs containing "/"
+                resp = await client.get(f"{base}/id/stations/{ref}/stageScale")
+                if resp.status_code == 200:
+                    scale = _dict(resp.json().get("items"))
+            station = parse_groundwater(s, measures, scale, lat, lon, now)
+            if not station.stale:
+                return GroundwaterBlock(
+                    status="ok",
+                    station=station,
+                    search_radius_km=GROUNDWATER_RADIUS_KM,
+                    source=groundwater_source(station.time),
+                )
+    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+        return GroundwaterBlock(
+            status="error",
+            reason=f"Groundwater levels unavailable: {type(exc).__name__}: {exc}",
+            search_radius_km=GROUNDWATER_RADIUS_KM,
+            source=groundwater_source(),
+        )
+    return GroundwaterBlock(
+        status="no_data",
+        reason=f"No Environment Agency borehole with a reading in the last week within "
+        f"{GROUNDWATER_RADIUS_KM:g} km.",
+        search_radius_km=GROUNDWATER_RADIUS_KM,
+        source=groundwater_source(),
     )

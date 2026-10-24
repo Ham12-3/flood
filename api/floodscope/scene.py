@@ -189,6 +189,16 @@ async def build_static(
     )
 
 
+MEAN_FLOW_START = date(1997, 1, 1)
+MEAN_FLOW_END = date(2010, 9, 30)  # matches the AI model's training-period mean
+
+
+def mean_flow(history: list[tuple[date, float | None]]) -> float | None:
+    """Mean GloFAS flow over the AI model's reference period; scales its flow ratios."""
+    values = [q for d, q in history if q is not None and MEAN_FLOW_START <= d <= MEAN_FLOW_END]
+    return round(sum(values) / len(values), 3) if len(values) >= 365 * 5 else None
+
+
 def fit_info(
     river: RiverDischarge, history: list[tuple[date, float | None]] | None, error: str | None = None
 ) -> ReturnPeriodFitInfo:
@@ -212,6 +222,7 @@ def fit_info(
     source.data_date = f"Annual maxima {fit.first_year}-{fit.last_year}"
     return ReturnPeriodFitInfo(
         status="ok",
+        mean_flow=mean_flow(history),
         first_year=fit.first_year,
         last_year=fit.last_year,
         n_years=fit.n_years,
@@ -233,63 +244,71 @@ def _rp(fit: GumbelFit, q: float | None) -> float | None:
     return MAX_RETURN_PERIOD if math.isinf(t) or t > MAX_RETURN_PERIOD else round(t, 2)
 
 
+def gumbel_from(fit_block: ReturnPeriodFitInfo) -> GumbelFit | None:
+    if fit_block.status != "ok" or fit_block.location is None or not fit_block.scale:
+        return None
+    return GumbelFit(
+        fit_block.location,
+        fit_block.scale,
+        fit_block.first_year or 0,
+        fit_block.last_year or 0,
+        fit_block.n_years or 0,
+    )
+
+
+def scenario_for(
+    day: int,
+    on: date,
+    q: float | None,
+    low: float | None,
+    high: float | None,
+    fit: GumbelFit | None,
+) -> ForecastScenario:
+    """Flow -> return period -> which JRC maps to blend. Shared by GloFAS and AI forecasts."""
+    t = _rp(fit, q) if fit else None
+    blend = bracket(t, RETURN_PERIODS) if t is not None else None
+    return ForecastScenario(
+        day=day,
+        date=on,
+        discharge=q,
+        discharge_low=low,
+        discharge_high=high,
+        return_period=t,
+        return_period_low=_rp(fit, low) if fit else None,
+        return_period_high=_rp(fit, high) if fit else None,
+        maps=MapBlend(lower=blend[0], upper=blend[1], weight=round(blend[2], 4)) if blend else None,
+        beyond_largest_map=t is not None and t >= RETURN_PERIODS[-1],
+    )
+
+
 def build_scenarios(
     forecast: list[DischargeDay], fit_block: ReturnPeriodFitInfo, today: date
 ) -> list[ForecastScenario]:
     """One scenario per forecast day from today onwards. Pure, so it is unit tested."""
-    fit = None
-    if fit_block.status == "ok" and fit_block.location is not None and fit_block.scale:
-        fit = GumbelFit(
-            fit_block.location,
-            fit_block.scale,
-            fit_block.first_year or 0,
-            fit_block.last_year or 0,
-            fit_block.n_years or 0,
+    fit = gumbel_from(fit_block)
+    return [
+        scenario_for(
+            (d.date - today).days,
+            d.date,
+            d.ensemble_mean if d.ensemble_mean is not None else d.discharge,
+            d.ensemble_p25,
+            d.ensemble_p75,
+            fit,
         )
-    out: list[ForecastScenario] = []
-    for d in forecast:
-        if d.date < today:
-            continue
-        q = d.ensemble_mean if d.ensemble_mean is not None else d.discharge
-        t = _rp(fit, q) if fit else None
-        blend = bracket(t, RETURN_PERIODS) if t is not None else None
-        out.append(
-            ForecastScenario(
-                day=(d.date - today).days,
-                date=d.date,
-                discharge=q,
-                discharge_low=d.ensemble_p25,
-                discharge_high=d.ensemble_p75,
-                return_period=t,
-                return_period_low=_rp(fit, d.ensemble_p25) if fit else None,
-                return_period_high=_rp(fit, d.ensemble_p75) if fit else None,
-                maps=MapBlend(lower=blend[0], upper=blend[1], weight=round(blend[2], 4))
-                if blend
-                else None,
-                beyond_largest_map=t is not None and t >= RETURN_PERIODS[-1],
-            )
-        )
-    return out
+        for d in forecast
+        if d.date >= today
+    ]
 
 
-async def build_scene(
+async def river_and_fit(
     lat: float,
     lon: float,
-    size_km: float,
     client: httpx.AsyncClient,
     cache: ResponseCache,
     settings: Settings,
-) -> SceneResponse:
-    g = window_grid(lat, lon, size_km)
-    today = datetime.now(UTC).date()
-
-    static = await cache.get_or_fetch(
-        f"scene:static:v1:{g.key}",
-        SceneStatic,
-        lambda: build_static(g, client, cache, settings),
-        settings.ttl_static,
-        lambda s: s.dem.status != "error" and s.hazard.status != "error",
-    )
+    today: date,
+) -> tuple[RiverDischarge, ReturnPeriodFitInfo]:
+    """The point's GloFAS forecast and the flood curve for its cell (both cached)."""
     river = await cache.get_or_fetch(
         river_cache_key(lat, lon, today),
         RiverDischarge,
@@ -314,12 +333,34 @@ async def build_scene(
         return fit_info(river, history)
 
     fit = await cache.get_or_fetch(
-        f"glofas:fit:{river.grid_lat}:{river.grid_lon}:{today.year}",
+        f"glofas:fit:v2:{river.grid_lat}:{river.grid_lon}:{today.year}",
         ReturnPeriodFitInfo,
         fetch_fit,
         settings.ttl_static,
         lambda f: f.status != "error",
     )
+    return river, fit
+
+
+async def build_scene(
+    lat: float,
+    lon: float,
+    size_km: float,
+    client: httpx.AsyncClient,
+    cache: ResponseCache,
+    settings: Settings,
+) -> SceneResponse:
+    g = window_grid(lat, lon, size_km)
+    today = datetime.now(UTC).date()
+
+    static = await cache.get_or_fetch(
+        f"scene:static:v1:{g.key}",
+        SceneStatic,
+        lambda: build_static(g, client, cache, settings),
+        settings.ttl_static,
+        lambda s: s.dem.status != "error" and s.hazard.status != "error",
+    )
+    river, fit = await river_and_fit(lat, lon, client, cache, settings, today)
     return SceneResponse(
         lat=lat,
         lon=lon,

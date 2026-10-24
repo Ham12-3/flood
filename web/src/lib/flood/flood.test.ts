@@ -206,3 +206,11 @@ describe("computeScenario", () => {
     expect(r.mesh).toBeNull();
   });
 });
+
+describe("minimum flood depth", () => {
+  it("ignores films thinner than 5 cm in stats", () => {
+    const s = floodStats(new Float32Array([0.01, 0.049, 0.05, 1]), new Uint8Array(4), 100);
+    expect(s.floodedCells).toBe(2);
+    expect(s.maxDepthM).toBe(1);
+  });
+});

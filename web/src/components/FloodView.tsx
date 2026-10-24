@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchScene, type SceneResponse } from "@/lib/api";
+import {
+  API_BASE_URL,
+  fetchPrediction,
+  fetchSatellite,
+  fetchScene,
+  type PredictResponse,
+  type SatelliteResponse,
+  type SceneResponse,
+} from "@/lib/api";
 import type { Cesium } from "@/lib/cesium";
 import { describeForecast, forecastRequest, formatReturnPeriod } from "@/lib/flood/describe";
 import { DEPTH_STOPS, FloodScene, type HoverInfo } from "@/lib/flood/floodScene";
@@ -12,6 +20,7 @@ import { decodeScene, type SceneArrays } from "@/lib/flood/sceneData";
 import { formatDay } from "@/lib/format";
 import { formatLength, type UnitSystem } from "@/lib/units";
 import type * as CesiumNS from "cesium";
+import SimulationPanel from "./SimulationPanel";
 import SourceTag from "./SourceTag";
 
 interface Props {
@@ -31,7 +40,7 @@ type Load =
   | { state: "error"; message: string }
   | { state: "ready"; scene: SceneResponse; arrays: SceneArrays };
 
-type Tab = "today" | "forecast" | "returnPeriod" | "custom";
+type Tab = "today" | "forecast" | "ai" | "returnPeriod" | "custom" | "simulate";
 
 export default function FloodView({ lat, lon, units, getViewer, onExit }: Props) {
   const [sizeKm, setSizeKm] = useState(4);
@@ -39,6 +48,9 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
   const [day, setDay] = useState(1);
   const [rp, setRp] = useState(100);
   const [rise, setRise] = useState(1);
+  const [aiDay, setAiDay] = useState(1);
+  const [overlayOn, setOverlayOn] = useState(false);
+  const [extras, setExtras] = useState<{ key: string; ai: PredictResponse | null; sat: SatelliteResponse | null } | null>(null);
   const [computing, setComputing] = useState(false);
   const [progress, setProgress] = useState(1);
   const [playing, setPlaying] = useState(false);
@@ -66,6 +78,7 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
   const sceneRef = useRef<FloodScene | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const requestId = useRef(0);
+  const animateNext = useRef(true); // simulation frames are shown as they are, without the rise
   const playStart = useRef(0);
 
   // 1. Fetch and decode the terrain window.
@@ -86,9 +99,32 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
     return () => ctrl.abort();
   }, [lat, lon, sizeKm, key]);
 
+  // AI forecast and satellite maps for this point (optional extras; failures just hide them).
+  useEffect(() => {
+    const ctrl = new AbortController();
+    const quiet = <T,>(p: Promise<T>) => p.catch(() => null);
+    Promise.all([quiet(fetchPrediction(lat, lon, ctrl.signal)), quiet(fetchSatellite(lat, lon, ctrl.signal))]).then(
+      ([ai, sat]) => {
+        if (!ctrl.signal.aborted) setExtras({ key: `${lat},${lon}`, ai, sat });
+      },
+    );
+    return () => ctrl.abort();
+  }, [lat, lon]);
+  const extrasNow = extras && extras.key === `${lat},${lon}` ? extras : null;
+  const ai = extrasNow?.ai?.status === "ok" ? extrasNow.ai : null;
+  const satellite = extrasNow?.sat?.status === "ok" ? extrasNow.sat.results[0] : undefined;
+
   const hasForecast = scene?.fit.status === "ok" && (scene?.scenarios.length ?? 0) > 0;
   const hasHazard = scene?.hazard.status === "ok";
-  const enabled: Record<Tab, boolean> = { today: hasForecast, forecast: hasForecast, returnPeriod: hasHazard, custom: hasHazard };
+  const hasAi = Boolean(ai && ai.days.length > 0 && hasHazard);
+  const enabled: Record<Tab, boolean> = {
+    today: hasForecast,
+    forecast: hasForecast,
+    ai: hasAi,
+    returnPeriod: hasHazard,
+    custom: hasHazard,
+    simulate: Boolean(arrays),
+  };
   const defaultTab: Tab = hasForecast ? "today" : hasHazard ? "returnPeriod" : "custom";
   const tab: Tab = userTab && enabled[userTab] ? userTab : defaultTab;
 
@@ -127,8 +163,14 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
           value: err instanceof Error ? `Could not draw the water: ${err.message}` : "Could not draw the water",
         }),
       );
-      playStart.current = performance.now();
-      setPlaying(true);
+      if (animateNext.current) {
+        playStart.current = performance.now();
+        setPlaying(true);
+      } else {
+        setPlaying(false);
+        setProgress(1);
+        fs.setProgress(1);
+      }
     };
     worker.onerror = (e) => {
       setComputing(false);
@@ -145,22 +187,42 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
     };
   }, [arrays, getViewer]);
 
+  // Simulation frames go straight to the worker for meshing and stats.
+  const showSimulatedDepth = useCallback((depth: Float32Array) => {
+    const worker = workerRef.current;
+    if (!worker) return;
+    requestId.current += 1;
+    animateNext.current = false;
+    worker.postMessage({ type: "compute", id: requestId.current, request: { kind: "given", depth } }, [depth.buffer]);
+  }, []);
+
   // 3. Work out what to compute for the chosen scenario.
   const scenario: Scenario = useMemo(() => {
     if (tab === "today") return { kind: "forecast", day: 0 };
     if (tab === "forecast") return { kind: "forecast", day };
+    if (tab === "ai") return { kind: "ai", day: aiDay };
     if (tab === "returnPeriod") return { kind: "returnPeriod", rp };
     return { kind: "custom", rise };
-  }, [tab, day, rp, rise]);
+  }, [tab, day, aiDay, rp, rise]);
 
   const forecastDay = scene && scenario.kind === "forecast" ? scene.scenarios.find((s) => s.day === scenario.day) : undefined;
+  const aiForecastDay = ai && scenario.kind === "ai" ? ai.days.find((d) => d.day === scenario.day) : undefined;
 
   const request: DepthRequest | null = useMemo(() => {
-    if (!scene) return null;
+    if (!scene || tab === "simulate") return null; // the simulation sends its own frames
     if (scenario.kind === "forecast") return forecastDay && hasForecast ? forecastRequest(forecastDay) : null;
+    if (scenario.kind === "ai") return aiForecastDay && hasAi ? forecastRequest(aiForecastDay) : null;
     if (scenario.kind === "returnPeriod") return hasHazard ? { kind: "layer", rp: scenario.rp } : null;
     return hasHazard ? { kind: "custom", rise: scenario.rise } : null;
-  }, [scene, scenario, forecastDay, hasForecast, hasHazard]);
+  }, [scene, tab, scenario, forecastDay, aiForecastDay, hasForecast, hasAi, hasHazard]);
+
+  // Satellite water map overlay.
+  const overlayUrl = overlayOn && satellite ? `${API_BASE_URL}${satellite.overlay_url}` : null;
+  useEffect(() => {
+    const fs = sceneRef.current;
+    if (!fs) return;
+    fs.setOverlay(overlayUrl, satellite?.bounds).catch(() => setOverlayOn(false));
+  }, [overlayUrl, satellite, arrays]);
 
   const requestKey = request ? JSON.stringify(request) : null;
   useEffect(() => {
@@ -169,6 +231,7 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
     // Debounce slider drags a little.
     const timer = setTimeout(() => {
       requestId.current += 1;
+      animateNext.current = true;
       setComputing(true);
       worker.postMessage({ type: "compute", id: requestId.current, request });
     }, 120);
@@ -252,13 +315,15 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
       {scene && (
         <>
           <section className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-3">
-            <div role="tablist" aria-label="Flood scenario" className="grid grid-cols-4 gap-1 text-xs">
+            <div role="tablist" aria-label="Flood scenario" className="grid grid-cols-3 gap-1 text-xs">
               {(
                 [
                   ["today", "Today", hasForecast],
                   ["forecast", "Forecast", hasForecast],
+                  ["ai", "AI forecast", hasAi],
                   ["returnPeriod", "1-in-N year", hasHazard],
                   ["custom", "Custom", hasHazard],
+                  ["simulate", "Simulate", Boolean(arrays)],
                 ] as const
               ).map(([key, label, enabled]) => (
                 <button
@@ -291,6 +356,31 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
                   />
                 </label>
               )}
+              {tab === "ai" && ai && (
+                <label className="block">
+                  <span className="flex justify-between text-xs text-[var(--text-secondary)]">
+                    <span>AI predicted flood, day {aiDay}</span>
+                    <span>{aiForecastDay ? formatDay(aiForecastDay.date) : ""}</span>
+                  </span>
+                  <input
+                    type="range"
+                    min={1}
+                    max={ai.days.length}
+                    value={aiDay}
+                    onChange={(e) => setAiDay(Number(e.target.value))}
+                    className="mt-1 w-full accent-[var(--series-1)]"
+                  />
+                </label>
+              )}
+              {tab === "simulate" && arrays && (
+                <SimulationPanel
+                  arrays={arrays}
+                  todayFlow={scene.scenarios[0]?.discharge ?? null}
+                  units={units}
+                  onDepth={showSimulatedDepth}
+                  onUseFill={() => setUserTab("custom")}
+                />
+              )}
               {tab === "returnPeriod" && (
                 <div className="flex flex-wrap gap-1">
                   {RETURN_PERIODS.map((r) => (
@@ -322,7 +412,11 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
                 </label>
               )}
               <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">
-                {scenarioText(tab, scene, forecastDay, rp, units)}
+                {tab === "simulate"
+                  ? ""
+                  : tab === "ai" && aiForecastDay
+                    ? `AI predicted flood, day ${aiDay}: ${describeForecast(aiForecastDay, units, "AI forecast")}`
+                    : scenarioText(tab, scene, forecastDay, rp, units)}
               </p>
             </div>
 
@@ -359,6 +453,16 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
             )}
           </section>
 
+          {satellite && (
+            <label className="flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-3 text-xs text-[var(--text-secondary)]">
+              <input type="checkbox" checked={overlayOn} onChange={(e) => setOverlayOn(e.target.checked)} className="mt-0.5" />
+              <span>
+                Show real water seen by satellite on {formatDay(satellite.datetime.slice(0, 10))} (Sentinel-2,{" "}
+                {satellite.cloud_cover ?? "?"}% cloud), mapped by Prithvi. Compare it with the simulated flood. Clouds hide water.
+              </span>
+            </label>
+          )}
+
           <section className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-3">
             <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">At full flood level</h3>
             <dl className="grid grid-cols-3 gap-2 text-sm">
@@ -372,7 +476,7 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
               />
             </dl>
             <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
-              Flooded land leaves out permanent rivers and lakes.{" "}
+              Flooded land is water at least 5 cm deep, leaving out permanent rivers and lakes.{" "}
               {HAS_ION_TOKEN
                 ? buildingsError
                   ? `Cesium OSM Buildings: ${buildingsError}.`

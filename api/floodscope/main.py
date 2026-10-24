@@ -2,20 +2,37 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Annotated
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse
 
 from floodscope.cache import ResponseCache
 from floodscope.config import get_settings
+from floodscope.explain import explain
 from floodscope.grid import MAX_SIZE_KM, MIN_SIZE_KM
-from floodscope.models import GeocodeResponse, PointResponse, SceneResponse
+from floodscope.ground import build_ground
+from floodscope.models import (
+    ExplainRequest,
+    ExplainResponse,
+    GeocodeResponse,
+    GoogleFloodResponse,
+    GroundResponse,
+    PointResponse,
+    PredictResponse,
+    SatelliteResponse,
+    SceneResponse,
+)
 from floodscope.point import build_point
+from floodscope.predict import build_prediction
+from floodscope.satellite import list_results, overlay_path
 from floodscope.scene import build_scene
 from floodscope.sources.geocode import search_places
+from floodscope.sources.google_flood import get_google_flood
 
 
 @asynccontextmanager
@@ -40,7 +57,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_origin_list,
     allow_origin_regex=get_settings().cors_origin_regex or None,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 # Scene grids are a few MB of base64; they compress well.
@@ -74,6 +91,66 @@ async def scene(
     return await build_scene(
         lat, lon, size_km, request.app.state.http, request.app.state.cache, get_settings()
     )
+
+
+@app.get("/api/ground", response_model=GroundResponse)
+async def ground(request: Request, lat: Lat, lon: Lon) -> GroundResponse:
+    """Soil moisture in four layers against its 2000-present range, and groundwater."""
+    return await build_ground(
+        lat, lon, request.app.state.http, request.app.state.cache, get_settings()
+    )
+
+
+@app.get("/api/predict", response_model=PredictResponse)
+async def predict(request: Request, lat: Lat, lon: Lon) -> PredictResponse:
+    """AI discharge forecast for days 1-7 at the point's river, with flood-map scenarios."""
+    settings = get_settings()
+    today = datetime.now(UTC).date()
+    cache: ResponseCache = request.app.state.cache
+    return await cache.get_or_fetch(
+        f"predict:{lat:.3f}:{lon:.3f}:{today}",
+        PredictResponse,
+        lambda: build_prediction(
+            lat, lon, request.app.state.http, request.app.state.cache, settings
+        ),
+        settings.ttl_forecast,
+        lambda r: r.status == "ok",
+    )
+
+
+@app.post("/api/explain", response_model=ExplainResponse)
+async def explain_point(request: Request, body: ExplainRequest) -> ExplainResponse:
+    """Plain-English explanation from Claude, using only numbers from FloodScope's tools."""
+    return await explain(body, request.app.state.http, request.app.state.cache, get_settings())
+
+
+@app.get("/api/google-flood", response_model=GoogleFloodResponse)
+async def google_flood(request: Request, lat: Lat, lon: Lon) -> GoogleFloodResponse:
+    """Google Flood Hub gauges near the point (feature flag: needs a waitlist API key)."""
+    settings = get_settings()
+    cache: ResponseCache = request.app.state.cache
+    key = settings.google_flood_api_key
+    return await cache.get_or_fetch(
+        f"google-flood:{lat:.2f}:{lon:.2f}:{bool(key)}",
+        GoogleFloodResponse,
+        lambda: get_google_flood(request.app.state.http, key, lat, lon),
+        settings.ttl_ea * 6,
+        lambda r: r.status == "ok",
+    )
+
+
+@app.get("/api/satellite", response_model=SatelliteResponse)
+async def satellite(lat: Lat, lon: Lon) -> SatelliteResponse:
+    """Prithvi water maps from Sentinel-2 that cover this point (made offline by the ML job)."""
+    return list_results(get_settings().satellite_dir, lat, lon)
+
+
+@app.get("/api/satellite/{result_id}/overlay.png")
+async def satellite_overlay(result_id: str) -> FileResponse:
+    path = overlay_path(get_settings().satellite_dir, result_id)
+    if path is None:
+        raise HTTPException(status_code=404, detail="No such satellite result")
+    return FileResponse(path, media_type="image/png")
 
 
 @app.get("/api/geocode", response_model=GeocodeResponse)

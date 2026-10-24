@@ -6,7 +6,8 @@ export type DepthRequest =
   | { kind: "layer"; rp: number }
   | { kind: "blend"; lower: number; upper: number; weight: number }
   | { kind: "banks" } // below the smallest map: permanent water only
-  | { kind: "custom"; rise: number };
+  | { kind: "custom"; rise: number }
+  | { kind: "given"; depth: Float32Array }; // e.g. from the shallow-water simulation
 
 export type WorkerRequest =
   | { type: "init"; scene: SceneArrays }

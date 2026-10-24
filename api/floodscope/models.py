@@ -237,6 +237,9 @@ class ReturnPeriodFitInfo(ApiModel):
     n_years: int | None = None
     location: float | None = None
     scale: float | None = None
+    mean_flow: float | None = Field(
+        default=None, description="Mean daily flow 1997-01-01 to 2010-09-30, m3/s"
+    )
     thresholds: list[DischargeForRP] = Field(default_factory=list)
     source: SourceInfo
 
@@ -293,3 +296,214 @@ class SceneStatic(ApiModel):
     geoid_offset_m: float | None
     dem: SceneDem
     hazard: SceneHazard
+
+
+# --- Phase 3: underground ---------------------------------------------------------
+
+
+class SoilPoint(ApiModel):
+    date: date
+    value: float | None = Field(description="Volumetric soil water, m3/m3")
+
+
+class SoilLayer(ApiModel):
+    top_cm: int
+    bottom_cm: int
+    value: float | None = Field(description="Latest ERA5 daily mean, m3/m3")
+    season_percentile: float | None = Field(
+        default=None,
+        description="Share of ERA5 days within 15 days of the same date in earlier years "
+        "(2000 onwards) that were drier, 0-100",
+    )
+    relative_wetness_pct: float | None = Field(
+        default=None,
+        description="Where the value sits between the driest and wettest of those days, "
+        "0-100. Not a true saturation: soil porosity is not known.",
+    )
+    season_min: float | None = None
+    season_max: float | None = None
+    forecast: list[SoilPoint] = Field(
+        default_factory=list, description="ECMWF IFS forecast (a different model; trend only)"
+    )
+    forecast_change_7d: float | None = Field(
+        default=None, description="IFS change from today to 7 days ahead, m3/m3"
+    )
+
+
+class SoilBlock(ApiModel):
+    status: Status
+    reason: str | None = None
+    value_date: date | None = Field(default=None, description="Date of the latest ERA5 day")
+    layers: list[SoilLayer] = Field(default_factory=list)
+    summary: str | None = None
+    climatology_years: str | None = None
+    forecast_source: SourceInfo
+    climatology_source: SourceInfo
+
+
+class GroundwaterStation(ApiModel):
+    reference: str
+    label: str
+    lat: float
+    lon: float
+    distance_km: float
+    level_maod: float | None = None
+    time: datetime | None = None
+    stale: bool
+    datum_maod: float | None = Field(
+        default=None, description="Borehole datum (about ground level), m above Ordnance Datum"
+    )
+    depth_below_datum_m: float | None = None
+    typical_range_low: float | None = None
+    typical_range_high: float | None = None
+    max_on_record: float | None = None
+    min_on_record: float | None = None
+    url: str
+
+
+class GroundwaterBlock(ApiModel):
+    status: Status
+    reason: str | None = None
+    station: GroundwaterStation | None = None
+    search_radius_km: float
+    source: SourceInfo
+
+
+class LeadSkill(ApiModel):
+    lead: int
+    nse: float | None = None
+    kge: float | None = None
+    nse_persistence: float | None = None
+    nse_glofas: float | None = None
+
+
+class ModelInfo(ApiModel):
+    run: str
+    dataset: str | None = None
+    train_basins: int | None = None
+    held_out_basins: int | None = None
+    skill: list[LeadSkill] = Field(
+        default_factory=list, description="Median skill on held-out basins, by lead time"
+    )
+    note: str | None = None
+
+
+class PredictionDay(ForecastScenario):
+    glofas_discharge: float | None = Field(
+        default=None, description="GloFAS ensemble-mean forecast for the same day, m3/s"
+    )
+
+
+class PredictResponse(ApiModel):
+    lat: float
+    lon: float
+    generated_at: datetime
+    disclaimer: str = DISCLAIMER
+    status: Status
+    reason: str | None = None
+    issue_date: date | None = None
+    grid_lat: float | None = None
+    grid_lon: float | None = None
+    days: list[PredictionDay] = Field(default_factory=list)
+    model: ModelInfo | None = None
+    method: str = (
+        "LSTM (NeuralHydrology) trained on Caravan basins. It forecasts flow as a ratio "
+        "to the river's 1997-2010 mean, driven by ERA5 weather and soil for the past year "
+        "and the ECMWF IFS forecast for the next 7 days at this point, plus GloFAS flow "
+        "up to today. The ratio is scaled by this GloFAS cell's mean flow. The band is the "
+        "10th-90th percentile of errors on held-out basins."
+    )
+    sources: list[SourceInfo] = Field(default_factory=list)
+
+
+class GoogleForecastValue(ApiModel):
+    start: datetime | None = None
+    end: datetime | None = None
+    value: float | None = None
+
+
+class GoogleGauge(ApiModel):
+    gauge_id: str
+    site_name: str | None = None
+    river: str | None = None
+    source: str | None = None
+    lat: float
+    lon: float
+    distance_km: float
+    quality_verified: bool | None = None
+    has_model: bool | None = None
+    severity: str | None = Field(
+        default=None, description="EXTREME, SEVERE, ABOVE_NORMAL, NO_FLOODING or UNKNOWN"
+    )
+    trend: str | None = Field(default=None, description="RISE, FALL or NO_CHANGE")
+    issued_time: datetime | None = None
+    forecast_issued_time: datetime | None = None
+    forecast: list[GoogleForecastValue] = Field(
+        default_factory=list,
+        description="Latest forecast; units are set by the gauge's model and not returned here",
+    )
+
+
+class GoogleFloodResponse(ApiModel):
+    lat: float
+    lon: float
+    status: Status
+    reason: str | None = None
+    gauges: list[GoogleGauge] = Field(default_factory=list)
+    search_radius_km: float
+    official_url: str = "https://sites.research.google/floods/"
+    source: SourceInfo
+
+
+class SatelliteResult(ApiModel):
+    id: str
+    scene_id: str
+    datetime: str
+    cloud_cover: float | None = None
+    bounds: tuple[float, float, float, float] = Field(description="west, south, east, north")
+    water_fraction: float | None = None
+    model: str
+    note: str | None = None
+    overlay_url: str
+
+
+class SatelliteResponse(ApiModel):
+    lat: float
+    lon: float
+    status: Status
+    reason: str | None = None
+    results: list[SatelliteResult] = Field(default_factory=list)
+    source: SourceInfo
+
+
+class ExplainRequest(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+    question: str | None = Field(default=None, max_length=500)
+    units: Literal["metric", "imperial"] = "metric"
+
+
+class ExplainResponse(ApiModel):
+    lat: float
+    lon: float
+    generated_at: datetime
+    disclaimer: str = DISCLAIMER
+    status: Status
+    reason: str | None = None
+    answer: str | None = None
+    model: str | None = None
+    tools_used: list[str] = Field(default_factory=list)
+    unverified_numbers: list[str] = Field(
+        default_factory=list,
+        description="Numbers in the answer that do not appear in any tool result. "
+        "Shown to the user as a warning.",
+    )
+
+
+class GroundResponse(ApiModel):
+    lat: float
+    lon: float
+    generated_at: datetime
+    disclaimer: str = DISCLAIMER
+    soil: SoilBlock
+    groundwater: GroundwaterBlock

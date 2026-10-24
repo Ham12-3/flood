@@ -1,0 +1,31 @@
+{ 
+  "@context" : "http://environment.data.gov.uk/flood-monitoring/meta/context.jsonld" ,
+  "meta" : { 
+    "publisher" : "Environment Agency" ,
+    "licence" : "http://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" ,
+    "documentation" : "http://environment.data.gov.uk/flood-monitoring/doc/reference" ,
+    "version" : "0.9" ,
+    "comment" : "Status: Beta service" ,
+    "hasFormat" : [ "http://environment.data.gov.uk/flood-monitoring/id/stations/SU48_72B/stageScale.rdf", "http://environment.data.gov.uk/flood-monitoring/id/stations/SU48_72B/stageScale.ttl", "http://environment.data.gov.uk/flood-monitoring/id/stations/SU48_72B/stageScale.html" ]
+  }
+   ,
+  "items" : { 
+    "@id" : "http://environment.data.gov.uk/flood-monitoring/id/stations/SU48_72B/stageScale" ,
+    "datum" : 127.07 ,
+    "maxOnRecord" : { 
+      "@id" : "http://environment.data.gov.uk/flood-monitoring/id/stations/SU48_72B/stageScale/maxOnRecord" ,
+      "dateTime" : "2014-03-09T16:00:00" ,
+      "value" : 121.778
+    }
+     ,
+    "minOnRecord" : { 
+      "@id" : "http://environment.data.gov.uk/flood-monitoring/id/stations/SU48_72B/stageScale/minOnRecord" ,
+      "dateTime" : "2022-11-14T13:00:00" ,
+      "value" : 102.484
+    }
+     ,
+    "typicalRangeHigh" : 117.75 ,
+    "typicalRangeLow" : 104.882
+  }
+}
+

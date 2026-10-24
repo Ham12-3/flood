@@ -1,0 +1,147 @@
+{
+  "format": 1,
+  "inputs": [
+    "total_precipitation_sum",
+    "temperature_2m_mean",
+    "temperature_2m_min",
+    "temperature_2m_max",
+    "potential_evaporation_sum",
+    "volumetric_soil_water_layer_1_mean",
+    "volumetric_soil_water_layer_2_mean",
+    "volumetric_soil_water_layer_3_mean",
+    "volumetric_soil_water_layer_4_mean",
+    "total_precipitation_sum_lead1",
+    "total_precipitation_sum_lead2",
+    "total_precipitation_sum_lead3",
+    "total_precipitation_sum_lead4",
+    "total_precipitation_sum_lead5",
+    "total_precipitation_sum_lead6",
+    "total_precipitation_sum_lead7",
+    "temperature_2m_mean_lead1",
+    "temperature_2m_mean_lead2",
+    "temperature_2m_mean_lead3",
+    "temperature_2m_mean_lead4",
+    "temperature_2m_mean_lead5",
+    "temperature_2m_mean_lead6",
+    "temperature_2m_mean_lead7",
+    "q_ratio"
+  ],
+  "targets": [
+    "q_ratio_lead1",
+    "q_ratio_lead2",
+    "q_ratio_lead3",
+    "q_ratio_lead4",
+    "q_ratio_lead5",
+    "q_ratio_lead6",
+    "q_ratio_lead7"
+  ],
+  "leads": 7,
+  "seq_length": 30,
+  "input_centre": [
+    2.365569591522217,
+    9.963314056396484,
+    5.963314533233643,
+    13.963314056396484,
+    0.298551470041275,
+    0.2997943162918091,
+    0.3001825511455536,
+    0.30107706785202026,
+    0.29881829023361206,
+    2.364072322845459,
+    2.3657913208007812,
+    2.3626325130462646,
+    2.361894130706787,
+    2.360252618789673,
+    2.3650076389312744,
+    2.3678808212280273,
+    9.965895652770996,
+    9.968486785888672,
+    9.971087455749512,
+    9.973695755004883,
+    9.976314544677734,
+    9.978939056396484,
+    9.981569290161133,
+    0.977898895740509
+  ],
+  "input_scale": [
+    3.037536382675171,
+    5.607846260070801,
+    5.607846260070801,
+    5.607846260070801,
+    0.04958007112145424,
+    0.050256386399269104,
+    0.049815576523542404,
+    0.04903363808989525,
+    0.049404121935367584,
+    3.0358667373657227,
+    3.0361709594726562,
+    3.034349203109741,
+    3.0342979431152344,
+    3.0330286026000977,
+    3.0395729541778564,
+    3.0426361560821533,
+    5.607040882110596,
+    5.606290817260742,
+    5.605597496032715,
+    5.60496187210083,
+    5.604383945465088,
+    5.603865146636963,
+    5.603405952453613,
+    0.2936619520187378
+  ],
+  "target_centre": [
+    0.9762643575668335,
+    0.97640061378479,
+    0.9765317440032959,
+    0.9765956997871399,
+    0.9765990376472473,
+    0.9767801761627197,
+    0.9770647287368774
+  ],
+  "target_scale": [
+    0.29251334071159363,
+    0.2924744784832001,
+    0.2923986613750458,
+    0.2924292981624603,
+    0.2924535870552063,
+    0.2926467955112457,
+    0.2927094101905823
+  ],
+  "run": "floodscope_forecast_lstm_2410_123144",
+  "training": {
+    "dataset": "synthetic test fixture - not a real model"
+  },
+  "evaluation": {
+    "log_ratio_quantiles": [
+      [
+        -0.3,
+        0.3
+      ],
+      [
+        -0.3,
+        0.3
+      ],
+      [
+        -0.3,
+        0.3
+      ],
+      [
+        -0.3,
+        0.3
+      ],
+      [
+        -0.3,
+        0.3
+      ],
+      [
+        -0.3,
+        0.3
+      ],
+      [
+        -0.3,
+        0.3
+      ]
+    ],
+    "note": "SYNTHETIC TEST MODEL"
+  }
+}

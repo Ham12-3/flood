@@ -61,6 +61,123 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ground": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ground
+         * @description Soil moisture in four layers against its 2000-present range, and groundwater.
+         */
+        get: operations["ground_api_ground_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/predict": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Predict
+         * @description AI discharge forecast for days 1-7 at the point's river, with flood-map scenarios.
+         */
+        get: operations["predict_api_predict_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/explain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explain Point
+         * @description Plain-English explanation from Claude, using only numbers from FloodScope's tools.
+         */
+        post: operations["explain_point_api_explain_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/google-flood": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Google Flood
+         * @description Google Flood Hub gauges near the point (feature flag: needs a waitlist API key).
+         */
+        get: operations["google_flood_api_google_flood_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/satellite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Satellite
+         * @description Prithvi water maps from Sentinel-2 that cover this point (made offline by the ML job).
+         */
+        get: operations["satellite_api_satellite_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/satellite/{result_id}/overlay.png": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Satellite Overlay */
+        get: operations["satellite_overlay_api_satellite__result_id__overlay_png_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/geocode": {
         parameters: {
             query?: never;
@@ -208,6 +325,56 @@ export interface components {
             note: string;
             source: components["schemas"]["SourceInfo"];
         };
+        /** ExplainRequest */
+        ExplainRequest: {
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /** Question */
+            question?: string | null;
+            /**
+             * Units
+             * @default metric
+             * @enum {string}
+             */
+            units: "metric" | "imperial";
+        };
+        /** ExplainResponse */
+        ExplainResponse: {
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Disclaimer
+             * @default Estimates for exploration. Not an official flood warning.
+             */
+            disclaimer: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "no_data" | "error";
+            /** Reason */
+            reason: string | null;
+            /** Answer */
+            answer: string | null;
+            /** Model */
+            model: string | null;
+            /** Tools Used */
+            tools_used: string[];
+            /**
+             * Unverified Numbers
+             * @description Numbers in the answer that do not appear in any tool result. Shown to the user as a warning.
+             */
+            unverified_numbers: string[];
+        };
         /** FloodHazard */
         FloodHazard: {
             /**
@@ -284,6 +451,148 @@ export interface components {
             results: components["schemas"]["Place"][];
             source: components["schemas"]["SourceInfo"];
         };
+        /** GoogleFloodResponse */
+        GoogleFloodResponse: {
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "no_data" | "error";
+            /** Reason */
+            reason: string | null;
+            /** Gauges */
+            gauges: components["schemas"]["GoogleGauge"][];
+            /** Search Radius Km */
+            search_radius_km: number;
+            /**
+             * Official Url
+             * @default https://sites.research.google/floods/
+             */
+            official_url: string;
+            source: components["schemas"]["SourceInfo"];
+        };
+        /** GoogleForecastValue */
+        GoogleForecastValue: {
+            /** Start */
+            start: string | null;
+            /** End */
+            end: string | null;
+            /** Value */
+            value: number | null;
+        };
+        /** GoogleGauge */
+        GoogleGauge: {
+            /** Gauge Id */
+            gauge_id: string;
+            /** Site Name */
+            site_name: string | null;
+            /** River */
+            river: string | null;
+            /** Source */
+            source: string | null;
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /** Distance Km */
+            distance_km: number;
+            /** Quality Verified */
+            quality_verified: boolean | null;
+            /** Has Model */
+            has_model: boolean | null;
+            /**
+             * Severity
+             * @description EXTREME, SEVERE, ABOVE_NORMAL, NO_FLOODING or UNKNOWN
+             */
+            severity: string | null;
+            /**
+             * Trend
+             * @description RISE, FALL or NO_CHANGE
+             */
+            trend: string | null;
+            /** Issued Time */
+            issued_time: string | null;
+            /** Forecast Issued Time */
+            forecast_issued_time: string | null;
+            /**
+             * Forecast
+             * @description Latest forecast; units are set by the gauge's model and not returned here
+             */
+            forecast: components["schemas"]["GoogleForecastValue"][];
+        };
+        /** GroundResponse */
+        GroundResponse: {
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Disclaimer
+             * @default Estimates for exploration. Not an official flood warning.
+             */
+            disclaimer: string;
+            soil: components["schemas"]["SoilBlock"];
+            groundwater: components["schemas"]["GroundwaterBlock"];
+        };
+        /** GroundwaterBlock */
+        GroundwaterBlock: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "no_data" | "error";
+            /** Reason */
+            reason: string | null;
+            station: components["schemas"]["GroundwaterStation"] | null;
+            /** Search Radius Km */
+            search_radius_km: number;
+            source: components["schemas"]["SourceInfo"];
+        };
+        /** GroundwaterStation */
+        GroundwaterStation: {
+            /** Reference */
+            reference: string;
+            /** Label */
+            label: string;
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /** Distance Km */
+            distance_km: number;
+            /** Level Maod */
+            level_maod: number | null;
+            /** Time */
+            time: string | null;
+            /** Stale */
+            stale: boolean;
+            /**
+             * Datum Maod
+             * @description Borehole datum (about ground level), m above Ordnance Datum
+             */
+            datum_maod: number | null;
+            /** Depth Below Datum M */
+            depth_below_datum_m: number | null;
+            /** Typical Range Low */
+            typical_range_low: number | null;
+            /** Typical Range High */
+            typical_range_high: number | null;
+            /** Max On Record */
+            max_on_record: number | null;
+            /** Min On Record */
+            min_on_record: number | null;
+            /** Url */
+            url: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -319,6 +628,19 @@ export interface components {
             /** Flooded Cells */
             flooded_cells: number;
         };
+        /** LeadSkill */
+        LeadSkill: {
+            /** Lead */
+            lead: number;
+            /** Nse */
+            nse: number | null;
+            /** Kge */
+            kge: number | null;
+            /** Nse Persistence */
+            nse_persistence: number | null;
+            /** Nse Glofas */
+            nse_glofas: number | null;
+        };
         /**
          * MapBlend
          * @description Which hazard maps to show: lower + weight * (upper - lower), in log return period.
@@ -336,6 +658,24 @@ export interface components {
             upper: 10 | 20 | 50 | 75 | 100 | 200 | 500;
             /** Weight */
             weight: number;
+        };
+        /** ModelInfo */
+        ModelInfo: {
+            /** Run */
+            run: string;
+            /** Dataset */
+            dataset: string | null;
+            /** Train Basins */
+            train_basins: number | null;
+            /** Held Out Basins */
+            held_out_basins: number | null;
+            /**
+             * Skill
+             * @description Median skill on held-out basins, by lead time
+             */
+            skill: components["schemas"]["LeadSkill"][];
+            /** Note */
+            note: string | null;
         };
         /** Place */
         Place: {
@@ -371,6 +711,92 @@ export interface components {
             hazard: components["schemas"]["FloodHazard"];
             uk_live: components["schemas"]["UKLive"];
         };
+        /** PredictResponse */
+        PredictResponse: {
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Disclaimer
+             * @default Estimates for exploration. Not an official flood warning.
+             */
+            disclaimer: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "no_data" | "error";
+            /** Reason */
+            reason: string | null;
+            /** Issue Date */
+            issue_date: string | null;
+            /** Grid Lat */
+            grid_lat: number | null;
+            /** Grid Lon */
+            grid_lon: number | null;
+            /** Days */
+            days: components["schemas"]["PredictionDay"][];
+            model: components["schemas"]["ModelInfo"] | null;
+            /**
+             * Method
+             * @default LSTM (NeuralHydrology) trained on Caravan basins. It forecasts flow as a ratio to the river's 1997-2010 mean, driven by ERA5 weather and soil for the past year and the ECMWF IFS forecast for the next 7 days at this point, plus GloFAS flow up to today. The ratio is scaled by this GloFAS cell's mean flow. The band is the 10th-90th percentile of errors on held-out basins.
+             */
+            method: string;
+            /** Sources */
+            sources: components["schemas"]["SourceInfo"][];
+        };
+        /** PredictionDay */
+        PredictionDay: {
+            /**
+             * Day
+             * @description 0 = today
+             */
+            day: number;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Discharge
+             * @description Ensemble mean, or the main run if missing
+             */
+            discharge: number | null;
+            /**
+             * Discharge Low
+             * @description Ensemble 25th percentile
+             */
+            discharge_low: number | null;
+            /**
+             * Discharge High
+             * @description Ensemble 75th percentile
+             */
+            discharge_high: number | null;
+            /** Return Period */
+            return_period: number | null;
+            /** Return Period Low */
+            return_period_low: number | null;
+            /** Return Period High */
+            return_period_high: number | null;
+            /** @description Null when the flow is below the 1-in-10 map (in banks) */
+            maps: components["schemas"]["MapBlend"] | null;
+            /**
+             * Beyond Largest Map
+             * @default false
+             */
+            beyond_largest_map: boolean;
+            /**
+             * Glofas Discharge
+             * @description GloFAS ensemble-mean forecast for the same day, m3/s
+             */
+            glofas_discharge: number | null;
+        };
         /** ReturnPeriodFitInfo */
         ReturnPeriodFitInfo: {
             /**
@@ -399,6 +825,11 @@ export interface components {
             location: number | null;
             /** Scale */
             scale: number | null;
+            /**
+             * Mean Flow
+             * @description Mean daily flow 1997-01-01 to 2010-09-30, m3/s
+             */
+            mean_flow: number | null;
             /** Thresholds */
             thresholds: components["schemas"]["DischargeForRP"][];
             source: components["schemas"]["SourceInfo"];
@@ -434,6 +865,52 @@ export interface components {
             /** Forecast */
             forecast: components["schemas"]["DischargeDay"][];
             source: components["schemas"]["SourceInfo"];
+        };
+        /** SatelliteResponse */
+        SatelliteResponse: {
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "no_data" | "error";
+            /** Reason */
+            reason: string | null;
+            /** Results */
+            results: components["schemas"]["SatelliteResult"][];
+            source: components["schemas"]["SourceInfo"];
+        };
+        /** SatelliteResult */
+        SatelliteResult: {
+            /** Id */
+            id: string;
+            /** Scene Id */
+            scene_id: string;
+            /** Datetime */
+            datetime: string;
+            /** Cloud Cover */
+            cloud_cover: number | null;
+            /**
+             * Bounds
+             * @description west, south, east, north
+             */
+            bounds: [
+                number,
+                number,
+                number,
+                number
+            ];
+            /** Water Fraction */
+            water_fraction: number | null;
+            /** Model */
+            model: string;
+            /** Note */
+            note: string | null;
+            /** Overlay Url */
+            overlay_url: string;
         };
         /** SceneDem */
         SceneDem: {
@@ -553,6 +1030,78 @@ export interface components {
              * @default The river cell's forecast flow is converted to a return period with the fitted curve, then the two nearest JRC maps are blended in log return period. The same flood size is applied to the whole window, so tributaries may differ.
              */
             scenario_basis: string;
+        };
+        /** SoilBlock */
+        SoilBlock: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "no_data" | "error";
+            /** Reason */
+            reason: string | null;
+            /**
+             * Value Date
+             * @description Date of the latest ERA5 day
+             */
+            value_date: string | null;
+            /** Layers */
+            layers: components["schemas"]["SoilLayer"][];
+            /** Summary */
+            summary: string | null;
+            /** Climatology Years */
+            climatology_years: string | null;
+            forecast_source: components["schemas"]["SourceInfo"];
+            climatology_source: components["schemas"]["SourceInfo"];
+        };
+        /** SoilLayer */
+        SoilLayer: {
+            /** Top Cm */
+            top_cm: number;
+            /** Bottom Cm */
+            bottom_cm: number;
+            /**
+             * Value
+             * @description Latest ERA5 daily mean, m3/m3
+             */
+            value: number | null;
+            /**
+             * Season Percentile
+             * @description Share of ERA5 days within 15 days of the same date in earlier years (2000 onwards) that were drier, 0-100
+             */
+            season_percentile: number | null;
+            /**
+             * Relative Wetness Pct
+             * @description Where the value sits between the driest and wettest of those days, 0-100. Not a true saturation: soil porosity is not known.
+             */
+            relative_wetness_pct: number | null;
+            /** Season Min */
+            season_min: number | null;
+            /** Season Max */
+            season_max: number | null;
+            /**
+             * Forecast
+             * @description ECMWF IFS forecast (a different model; trend only)
+             */
+            forecast: components["schemas"]["SoilPoint"][];
+            /**
+             * Forecast Change 7D
+             * @description IFS change from today to 7 days ahead, m3/m3
+             */
+            forecast_change_7d: number | null;
+        };
+        /** SoilPoint */
+        SoilPoint: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Value
+             * @description Volumetric soil water, m3/m3
+             */
+            value: number | null;
         };
         /**
          * SourceInfo
@@ -702,6 +1251,206 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SceneResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ground_api_ground_get: {
+        parameters: {
+            query: {
+                /** @description Latitude, WGS84 degrees */
+                lat: number;
+                /** @description Longitude, WGS84 degrees */
+                lon: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroundResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    predict_api_predict_get: {
+        parameters: {
+            query: {
+                /** @description Latitude, WGS84 degrees */
+                lat: number;
+                /** @description Longitude, WGS84 degrees */
+                lon: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PredictResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    explain_point_api_explain_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExplainRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExplainResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_flood_api_google_flood_get: {
+        parameters: {
+            query: {
+                /** @description Latitude, WGS84 degrees */
+                lat: number;
+                /** @description Longitude, WGS84 degrees */
+                lon: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleFloodResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    satellite_api_satellite_get: {
+        parameters: {
+            query: {
+                /** @description Latitude, WGS84 degrees */
+                lat: number;
+                /** @description Longitude, WGS84 degrees */
+                lon: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SatelliteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    satellite_overlay_api_satellite__result_id__overlay_png_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                result_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

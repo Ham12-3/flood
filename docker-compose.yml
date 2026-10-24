@@ -1,7 +1,9 @@
 # Local backend in a container. The web app runs with `npm run dev` (and deploys to Vercel).
 services:
   api:
-    build: ./api
+    build:
+      context: .
+      dockerfile: api/Dockerfile
     ports:
       - "8000:8000"
     env_file:

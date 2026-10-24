@@ -29,6 +29,10 @@ export function computeScenario(scene: SceneArrays, request: DepthRequest, id: n
     case "banks":
       depth = new Float32Array(n);
       break;
+    case "given":
+      if (request.depth.length !== n) throw new Error("Depth grid does not match the scene");
+      depth = request.depth;
+      break;
     case "custom": {
       const result = connectedFlood(scene.ground, scene.permanent, scene.grid.nx, scene.grid.ny, request.rise);
       depth = result.depth;

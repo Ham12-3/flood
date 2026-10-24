@@ -1,0 +1,13 @@
+**/.venv
+**/node_modules
+**/__pycache__
+**/.mypy_cache
+**/.ruff_cache
+**/.pytest_cache
+api/.cache
+api/tests
+ml/tests
+ml/notebooks
+web
+.git
+.claude
