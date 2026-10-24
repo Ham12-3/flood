@@ -39,3 +39,30 @@ export function loadCesium(): Promise<Cesium> {
   });
   return loading;
 }
+
+/**
+ * The map is flat (2D) while browsing. Close-up views that need real 3D (terrain, the
+ * water surface, looking under the ground) switch to 3D; call the returned function on
+ * exit to switch back to the same map view. At a few kilometres across, the 3D view
+ * looks flat anyway.
+ */
+export function enter3D(C: Cesium, viewer: CesiumNS.Viewer): () => void {
+  const scene = viewer.scene;
+  if (scene.mode !== C.SceneMode.SCENE2D) return () => {};
+  // A 2D camera sits above its map centre; the orthographic frustum width is the view width.
+  const cam = viewer.camera;
+  const frustum = cam.frustum as CesiumNS.OrthographicOffCenterFrustum;
+  const centre = scene.mapProjection.unproject(new C.Cartesian3(cam.position.x, cam.position.y, 0));
+  const widthM = (frustum.right ?? 0) - (frustum.left ?? 0) || 12_000;
+  // The 3D views animate (water ripples, rise) and change state Cesium can't see, so they
+  // draw continuously; the flat map only draws on change.
+  const requestRenderMode = scene.requestRenderMode;
+  scene.requestRenderMode = false;
+  scene.morphTo3D(0);
+  return () => {
+    if (viewer.isDestroyed() || scene.mode === C.SceneMode.SCENE2D) return;
+    scene.requestRenderMode = requestRenderMode;
+    scene.morphTo2D(0);
+    cam.setView({ destination: C.Cartesian3.fromRadians(centre.longitude, centre.latitude, widthM) });
+  };
+}

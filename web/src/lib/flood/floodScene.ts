@@ -1,5 +1,5 @@
 import type * as CesiumNS from "cesium";
-import type { Cesium } from "@/lib/cesium";
+import { enter3D, type Cesium } from "@/lib/cesium";
 import { cellIndex, sampleGround, type SceneArrays } from "./sceneData";
 import type { WaterMesh } from "./waterMesh";
 
@@ -13,8 +13,6 @@ export const DEPTH_STOPS: { depth: number; color: string }[] = [
   { depth: 5, color: "#0d366b" },
 ];
 const PERMANENT_COLOR = "#3987e5";
-const FLOODED_BUILDING = "#eb6834"; // categorical orange: reads against the blue water
-const BUILDING_WET_THRESHOLD_M = 0.05;
 
 function glslColor(hex: string): string {
   const v = [1, 3, 5].map((i) => (parseInt(hex.slice(i, i + 2), 16) / 255).toFixed(4));
@@ -45,7 +43,7 @@ export interface HoverInfo {
 }
 
 /**
- * Owns everything the 3D flood view adds to the Cesium viewer, and puts the globe back
+ * Owns everything the 3D flood view adds to the Cesium viewer, and puts the flat map back
  * the way it was on exit.
  */
 export class FloodScene {
@@ -59,14 +57,12 @@ export class FloodScene {
   private removePreRender: (() => void) | null = null;
   private handler: CesiumNS.ScreenSpaceEventHandler | null = null;
   private removeLeave: (() => void) | null = null;
-  private buildings: CesiumNS.Cesium3DTileset | null = null;
-  private readonly buildingCells = new Map<string, number>();
+  private restoreMode: (() => void) | null = null;
   private depth: Float32Array | null = null;
   private overlay: CesiumNS.ImageryLayer | null = null;
   private progress = 1;
   private maxDepth = 0;
   private destroyed = false;
-  onBuildingsChanged: (() => void) | null = null;
 
   constructor(C: Cesium, viewer: CesiumNS.Viewer, arrays: SceneArrays) {
     this.C = C;
@@ -110,9 +106,10 @@ export class FloodScene {
     });
   }
 
-  /** Swap in our DEM as terrain, clip the globe to the window and fly there. */
-  enter(hasIonToken: boolean): void {
+  /** Switch to 3D, swap in our DEM as terrain, clip the globe to the window and fly there. */
+  enter(): void {
     const { C, viewer, arrays } = this;
+    this.restoreMode = enter3D(C, viewer);
     const { grid, geoid } = arrays;
     const tiling = new C.GeographicTilingScheme();
     const size = 65;
@@ -142,10 +139,6 @@ export class FloodScene {
     const globe = viewer.scene.globe;
     globe.cartographicLimitRectangle = C.Rectangle.fromDegrees(grid.west, grid.south, grid.east, grid.north);
     globe.depthTestAgainstTerrain = true;
-    if (!hasIonToken) {
-      // The offline Natural Earth image is too coarse at this scale; shade by height instead.
-      globe.material = this.elevationMaterial();
-    }
 
     const centre = C.Cartesian3.fromDegrees(
       (grid.west + grid.east) / 2,
@@ -163,34 +156,6 @@ export class FloodScene {
     });
   }
 
-  private elevationMaterial(): CesiumNS.Material {
-    const { C, arrays } = this;
-    let min = Infinity;
-    let max = -Infinity;
-    for (const h of arrays.ground) {
-      if (!Number.isFinite(h)) continue;
-      if (h < min) min = h;
-      if (h > max) max = h;
-    }
-    const canvas = document.createElement("canvas");
-    canvas.width = 256;
-    canvas.height = 1;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      const g = ctx.createLinearGradient(0, 0, 256, 0);
-      g.addColorStop(0, "#3d4a3a");
-      g.addColorStop(0.5, "#8a8f74");
-      g.addColorStop(1, "#d8d4c4");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, 256, 1);
-    }
-    return C.Material.fromType("ElevationRamp", {
-      image: canvas,
-      minimumHeight: min + arrays.geoid,
-      maximumHeight: Math.max(max, min + 1) + arrays.geoid,
-    });
-  }
-
   /** Replace the water surface. Pass null to clear it. */
   async setWater(mesh: WaterMesh | null, depth: Float32Array): Promise<void> {
     const { C, viewer } = this;
@@ -198,7 +163,6 @@ export class FloodScene {
     const token = ++this.modelToken;
     if (!mesh) {
       this.removeModel();
-      this.refreshBuildings();
       return;
     }
     const url = URL.createObjectURL(new Blob([mesh.glb], { type: "model/gltf-binary" }));
@@ -230,7 +194,6 @@ export class FloodScene {
       URL.revokeObjectURL(url);
       throw err;
     }
-    this.refreshBuildings();
   }
 
   /** Show a satellite water map (transparent PNG in lat/lon) over the terrain, or clear it. */
@@ -302,67 +265,6 @@ export class FloodScene {
     }, C.ScreenSpaceEventType.MOUSE_MOVE);
   }
 
-  /**
-   * Load Cesium OSM Buildings (needs an ion token) and track each building's centre cell.
-   * Buildings outside the window are hidden; flooded ones are tinted.
-   */
-  async loadBuildings(): Promise<void> {
-    const { C, viewer, arrays } = this;
-    const tileset = await C.createOsmBuildingsAsync();
-    if (this.destroyed) {
-      tileset.destroy();
-      return;
-    }
-    tileset.tileLoad.addEventListener((tile: CesiumNS.Cesium3DTile) => {
-      const content = tile.content;
-      let added = false;
-      for (let k = 0; k < content.featuresLength; k++) {
-        const f = content.getFeature(k);
-        const lat = Number(f.getProperty("cesium#latitude"));
-        const lon = Number(f.getProperty("cesium#longitude"));
-        const i = cellIndex(arrays.grid, lat, lon);
-        if (i < 0) continue;
-        const id = String(f.getProperty("elementId") ?? `${lat},${lon}`);
-        if (!this.buildingCells.has(id)) {
-          this.buildingCells.set(id, i);
-          added = true;
-        }
-      }
-      if (added) this.onBuildingsChanged?.();
-    });
-    const cellOf = (f: CesiumNS.Cesium3DTileFeature) =>
-      cellIndex(arrays.grid, Number(f.getProperty("cesium#latitude")), Number(f.getProperty("cesium#longitude")));
-    const white = C.Color.WHITE.withAlpha(0.95);
-    const wet = C.Color.fromCssColorString(FLOODED_BUILDING);
-    const style = new C.Cesium3DTileStyle();
-    // Custom expressions: plain objects with evaluate / evaluateColor (see Cesium3DTileStyle docs).
-    style.show = { evaluate: (f: CesiumNS.Cesium3DTileFeature) => cellOf(f) >= 0 } as unknown as CesiumNS.StyleExpression;
-    style.color = {
-      evaluateColor: (f: CesiumNS.Cesium3DTileFeature, result?: CesiumNS.Color) => {
-        const i = cellOf(f);
-        const c = this.depth && i >= 0 && this.depth[i] > BUILDING_WET_THRESHOLD_M ? wet : white;
-        return C.Color.clone(c, result);
-      },
-    } as unknown as CesiumNS.StyleExpression;
-    tileset.style = style;
-    this.buildings = viewer.scene.primitives.add(tileset) as CesiumNS.Cesium3DTileset;
-  }
-
-  /** Buildings whose centre is in water at the final flood level. */
-  buildingCounts(): { loaded: number; touched: number } | null {
-    if (!this.buildings) return null;
-    let touched = 0;
-    for (const i of this.buildingCells.values()) {
-      if (this.depth && this.depth[i] > BUILDING_WET_THRESHOLD_M) touched++;
-    }
-    return { loaded: this.buildingCells.size, touched };
-  }
-
-  private refreshBuildings(): void {
-    this.buildings?.makeStyleDirty();
-    this.onBuildingsChanged?.();
-  }
-
   private removeModel(): void {
     if (this.model) {
       this.viewer.scene.primitives.remove(this.model); // also destroys it
@@ -376,14 +278,13 @@ export class FloodScene {
     const { C, viewer } = this;
     this.removeModel();
     if (this.overlay) viewer.imageryLayers.remove(this.overlay, true);
-    if (this.buildings) viewer.scene.primitives.remove(this.buildings);
     this.handler?.destroy();
     this.removeLeave?.();
     this.removePreRender?.();
     if (viewer.isDestroyed()) return;
     const globe = viewer.scene.globe;
     globe.cartographicLimitRectangle = C.Rectangle.MAX_VALUE;
-    globe.material = undefined as unknown as CesiumNS.Material;
     if (this.previousTerrain) viewer.scene.terrainProvider = this.previousTerrain;
+    this.restoreMode?.();
   }
 }

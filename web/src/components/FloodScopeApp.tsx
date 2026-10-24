@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { fetchGround, fetchPoint, type GroundResponse, type Place, type PointResponse } from "@/lib/api";
+import { BASEMAPS, type BasemapId } from "@/lib/basemap";
 import { formatLatLon } from "@/lib/format";
 import { UndergroundScene } from "@/lib/underground/undergroundScene";
 import { formatLength, type UnitSystem } from "@/lib/units";
@@ -14,7 +15,7 @@ import PointPanel from "./PointPanel";
 import SearchBox from "./SearchBox";
 import UndergroundSection from "./UndergroundSection";
 
-// Cesium touches `window`, so the globe never renders on the server.
+// Cesium touches `window`, so the map never renders on the server.
 const Globe = dynamic(() => import("./Globe"), { ssr: false });
 
 const DISCLAIMER = "Estimates for exploration. Not an official flood warning.";
@@ -67,6 +68,7 @@ export default function FloodScopeApp() {
   const [load, setLoad] = useState<Load>({ state: "idle" });
   const units = useSyncExternalStore(subscribeUnits, readUnits, () => "metric" as const);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [basemap, setBasemap] = useState<BasemapId>("map");
   const [panelOpen, setPanelOpen] = useState(true);
   const [floodMode, setFloodMode] = useState(false);
   const [ground, setGround] = useState<{ key: string; data: GroundResponse | null; error: string | null } | null>(null);
@@ -100,7 +102,7 @@ export default function FloodScopeApp() {
   const groundKey = selected ? `${selected.lat},${selected.lon}` : null;
   const groundNow = ground && ground.key === groundKey ? ground : null;
 
-  // Underground view: see-through globe, soil cut-away and water table.
+  // Underground view: see-through ground, soil cut-away and water table.
   const showUnderground = undergroundOn && !floodMode && groundNow?.data ? groundNow.data : null;
   useEffect(() => {
     if (!showUnderground || !selected) return;
@@ -120,7 +122,7 @@ export default function FloodScopeApp() {
 
   return (
     <main className="fixed inset-0 overflow-hidden bg-[var(--surface-0)] text-[var(--text-primary)]">
-      <Globe ref={globe} selected={selected} interactive={!floodMode} onPick={onPick} />
+      <Globe ref={globe} selected={selected} basemap={basemap} interactive={!floodMode} onPick={onPick} />
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start gap-3 p-3 sm:p-4">
         <div className="pointer-events-auto flex min-w-0 flex-1 flex-wrap items-center gap-3">
@@ -130,6 +132,18 @@ export default function FloodScopeApp() {
           <SearchBox onSelect={onPlace} />
         </div>
         <div className="pointer-events-auto flex shrink-0 items-center gap-2">
+          <div role="group" aria-label="Base map" className="flex rounded-lg bg-[var(--surface-1)]/90 p-0.5 text-xs shadow-lg">
+            {(Object.keys(BASEMAPS) as BasemapId[]).map((b) => (
+              <button
+                key={b}
+                onClick={() => setBasemap(b)}
+                aria-pressed={basemap === b}
+                className={`rounded-md px-2.5 py-1.5 ${basemap === b ? "bg-[var(--surface-2)] text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}`}
+              >
+                {BASEMAPS[b].label}
+              </button>
+            ))}
+          </div>
           <div role="group" aria-label="Units" className="flex rounded-lg bg-[var(--surface-1)]/90 p-0.5 text-xs shadow-lg">
             {(["metric", "imperial"] as const).map((u) => (
               <button
@@ -235,7 +249,7 @@ export default function FloodScopeApp() {
 
       {!selected && (
         <p className="pointer-events-none absolute left-1/2 top-24 z-10 -translate-x-1/2 rounded-full bg-[var(--surface-1)]/85 px-4 py-2 text-sm text-[var(--text-secondary)] shadow-lg">
-          Click anywhere on the globe to inspect it
+          Click anywhere on the map to inspect it
         </p>
       )}
 

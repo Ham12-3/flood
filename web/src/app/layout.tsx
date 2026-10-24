@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "FloodScope 3D",
   description:
-    "Click anywhere on a 3D globe to see river flow, flood hazard depths and live gauges. Estimates for exploration, not an official flood warning.",
+    "Click anywhere on the world map to see river flow, flood hazard depths and live gauges. Estimates for exploration, not an official flood warning.",
 };
 
 export const viewport: Viewport = {

@@ -79,11 +79,18 @@ const DATASETS: { name: string; by: string; licence: string; url: string; use: s
     use: "Place search",
   },
   {
-    name: "CesiumJS, Cesium World Terrain and ion imagery",
-    by: "Cesium GZ, Inc. (imagery providers credited on the globe)",
-    licence: "Apache 2.0 (CesiumJS); Cesium ion terms",
-    url: "https://cesium.com/",
-    use: "3D globe, terrain and base imagery",
+    name: "Esri World Dark Gray Canvas and World Imagery",
+    by: "Esri, HERE, Garmin, © OpenStreetMap contributors; imagery by Esri, Maxar, Earthstar Geographics",
+    licence: "Esri terms of use (attribution required)",
+    url: "https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9",
+    use: "Base map tiles (Map and Satellite)",
+  },
+  {
+    name: "CesiumJS",
+    by: "Cesium GZ, Inc.",
+    licence: "Apache 2.0",
+    url: "https://cesium.com/platform/cesiumjs/",
+    use: "Flat map and the 3D terrain views (no Cesium ion services used)",
   },
 ];
 
@@ -112,7 +119,7 @@ export default function AboutDialog({ open, onClose }: Props) {
           </button>
         </div>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          Click anywhere on the globe to see what open flood datasets say about that spot. Every number shows where it came
+          Click anywhere on the map to see what open flood datasets say about that spot. Every number shows where it came
           from. Nothing is estimated or filled in by FloodScope: if a source has no data, we say so.
         </p>
         <p className="mt-3 rounded border border-[var(--status-warning)]/50 bg-[var(--status-warning)]/10 px-3 py-2 text-sm">

@@ -2,6 +2,7 @@
 
 import type * as CesiumNS from "cesium";
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { Basemap, type BasemapId } from "@/lib/basemap";
 import { loadCesium, type Cesium } from "@/lib/cesium";
 
 export interface GlobeHandle {
@@ -12,20 +13,23 @@ export interface GlobeHandle {
 interface GlobeProps {
   ref?: Ref<GlobeHandle>;
   selected: { lat: number; lon: number } | null;
+  basemap: BasemapId;
   /** When false, clicks are ignored (the 3D flood view handles its own input). */
   interactive?: boolean;
   onPick(lat: number, lon: number): void;
 }
 
-const ION_TOKEN = process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN ?? "";
 const MARKER_ID = "floodscope-selected";
 
-export default function Globe({ ref, selected, interactive = true, onPick }: GlobeProps) {
+/** A flat (2D, Web Mercator) world map. The 3D views switch it to 3D while they are open. */
+export default function Globe({ ref, selected, basemap, interactive = true, onPick }: GlobeProps) {
   const container = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<CesiumNS.Viewer | null>(null);
   const cesiumRef = useRef<Cesium | null>(null);
+  const basemapRef = useRef<Basemap | null>(null);
   const onPickRef = useRef(onPick);
   const interactiveRef = useRef(interactive);
+  const basemapIdRef = useRef(basemap);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,7 +45,6 @@ export default function Globe({ ref, selected, interactive = true, onPick }: Glo
       .then((C) => {
         if (destroyed || !container.current) return;
         cesiumRef.current = C;
-        if (ION_TOKEN) C.Ion.defaultAccessToken = ION_TOKEN;
 
         const viewer = new C.Viewer(container.current, {
           animation: false,
@@ -54,21 +57,25 @@ export default function Globe({ ref, selected, interactive = true, onPick }: Glo
           fullscreenButton: false,
           infoBox: false,
           selectionIndicator: false,
-          // With an ion token: Cesium World Terrain + ion default imagery.
-          // Without: the Natural Earth image bundled with Cesium, on a smooth ellipsoid.
-          ...(ION_TOKEN
-            ? { terrain: C.Terrain.fromWorldTerrain() }
-            : {
-                baseLayer: C.ImageryLayer.fromProviderAsync(
-                  C.TileMapServiceImageryProvider.fromUrl(C.buildModuleUrl("Assets/Textures/NaturalEarthII")),
-                ),
-              }),
+          sceneMode: C.SceneMode.SCENE2D,
+          mapProjection: new C.WebMercatorProjection(),
+          baseLayer: false, // the Basemap below adds keyless tiles; no Cesium ion
+          // Light on the GPU: draw only when something changes (enter3D turns continuous
+          // drawing on for the animated 3D views), at most 30 fps, no multisampling.
+          requestRenderMode: true,
+          maximumRenderTimeChange: Number.POSITIVE_INFINITY,
+          targetFrameRate: 30,
+          msaaSamples: 1,
         });
+        viewer.scene.postProcessStages.fxaa.enabled = false;
+        viewer.scene.fog.enabled = false;
         viewerRef.current = viewer;
+        basemapRef.current = new Basemap(C, viewer);
+        basemapRef.current.set(basemapIdRef.current);
         viewer.scene.globe.depthTestAgainstTerrain = true;
         viewer.scene.globe.enableLighting = false;
         viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(C.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
-        viewer.camera.setView({ destination: C.Cartesian3.fromDegrees(10, 25, 22_000_000) });
+        viewer.camera.setView({ destination: C.Rectangle.fromDegrees(-120, -50, 140, 72) });
 
         handler = new C.ScreenSpaceEventHandler(viewer.scene.canvas);
         handler.setInputAction((event: CesiumNS.ScreenSpaceEventHandler.PositionedEvent) => {
@@ -91,8 +98,14 @@ export default function Globe({ ref, selected, interactive = true, onPick }: Glo
       handler?.destroy();
       if (viewerRef.current && !viewerRef.current.isDestroyed()) viewerRef.current.destroy();
       viewerRef.current = null;
+      basemapRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    basemapIdRef.current = basemap;
+    basemapRef.current?.set(basemap);
+  }, [basemap]);
 
   // Keep a single marker on the selected point.
   useEffect(() => {
@@ -100,6 +113,7 @@ export default function Globe({ ref, selected, interactive = true, onPick }: Glo
     const C = cesiumRef.current;
     if (!viewer || !C) return;
     viewer.entities.removeById(MARKER_ID);
+    viewer.scene.requestRender();
     if (!selected) return;
     viewer.entities.add({
       id: MARKER_ID,
@@ -113,6 +127,7 @@ export default function Globe({ ref, selected, interactive = true, onPick }: Glo
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
     });
+    viewer.scene.requestRender();
   }, [selected]);
 
   useImperativeHandle(
@@ -135,17 +150,11 @@ export default function Globe({ ref, selected, interactive = true, onPick }: Glo
 
   return (
     <div className="absolute inset-0">
-      <div ref={container} className="h-full w-full" aria-label="3D globe. Click anywhere to inspect flood data." />
-      {!ION_TOKEN && !error && (
-        <div className="pointer-events-none absolute bottom-24 left-3 max-w-xs rounded-md border border-[var(--border)] bg-[var(--surface-1)]/90 px-3 py-2 text-xs text-[var(--text-secondary)]">
-          No Cesium ion token set, so the globe uses a low-detail offline image and flat terrain. Add
-          NEXT_PUBLIC_CESIUM_ION_TOKEN to .env.
-        </div>
-      )}
+      <div ref={container} className="h-full w-full" aria-label="World map. Click anywhere to inspect flood data." />
       {error && (
         <div role="alert" className="absolute inset-0 grid place-items-center p-6 text-center text-[var(--text-secondary)]">
           <p>
-            The globe could not start: {error}
+            The map could not start: {error}
           </p>
         </div>
       )}

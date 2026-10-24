@@ -1,19 +1,21 @@
 import type * as CesiumNS from "cesium";
 import type { GroundResponse } from "@/lib/api";
-import type { Cesium } from "@/lib/cesium";
+import { enter3D, type Cesium } from "@/lib/cesium";
 import { BLOCK_WIDTH_M, groundwaterOffsetM, layerBoxes, rankText, VERTICAL_EXAGGERATION, wetnessColor } from "./geometry";
 
 const TRANSLUCENT_RADIUS_DEG = 0.02;
 
 /**
- * Turns the globe see-through around a point, lets the camera go under the surface,
- * and draws the soil cut-away and the water table. Restores everything on exit.
+ * Switches the flat map to 3D, turns the ground see-through around a point, lets the
+ * camera go under the surface, and draws the soil cut-away and the water table.
+ * Restores everything on exit.
  */
 export class UndergroundScene {
   private readonly C: Cesium;
   private readonly viewer: CesiumNS.Viewer;
   private readonly entities: CesiumNS.Entity[] = [];
   private destroyed = false;
+  private restoreMode: (() => void) | null = null;
   private readonly saved: { collision: boolean; translucency: boolean; alpha: number };
 
   constructor(C: Cesium, viewer: CesiumNS.Viewer) {
@@ -29,6 +31,7 @@ export class UndergroundScene {
 
   async enter(lat: number, lon: number, data: GroundResponse, formatDepth: (m: number) => string): Promise<void> {
     const { C, viewer } = this;
+    this.restoreMode = enter3D(C, viewer);
     const scene = viewer.scene;
     const globe = scene.globe;
     globe.translucency.enabled = true;
@@ -169,5 +172,6 @@ export class UndergroundScene {
     t.frontFaceAlpha = this.saved.alpha;
     t.rectangle = this.C.Rectangle.MAX_VALUE;
     viewer.scene.screenSpaceCameraController.enableCollisionDetection = this.saved.collision;
+    this.restoreMode?.();
   }
 }

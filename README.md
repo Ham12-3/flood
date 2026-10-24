@@ -1,6 +1,6 @@
 # FloodScope 3D
 
-Click anywhere on a 3D globe and see what open flood data says about that spot:
+Click anywhere on a flat world map and see what open flood data says about that spot:
 
 - **Now:** ground height, river flow and its 30-day forecast, live Environment Agency gauges.
 - **How bad it could get:** modelled 1-in-10 to 1-in-500 year flood depths, in 3D water over real terrain.
@@ -19,7 +19,6 @@ data; until then they say so instead of guessing:
 
 | Needs | Turns on | How |
 |---|---|---|
-| Cesium ion token (free) | Real terrain and imagery, Cesium OSM Buildings counts | `NEXT_PUBLIC_CESIUM_ION_TOKEN` in `.env` |
 | A trained model | AI flow forecast (`/api/predict`, "AI forecast" tab) | Run `ml/notebooks/train_colab.ipynb` in Colab, put `forecast_lstm.onnx` + `.json` in `ml/artifacts/` |
 | Anthropic API key | AI explainer (`/api/explain`) | `ANTHROPIC_API_KEY` in `.env` |
 | Google waitlist key | Google Flood Hub panel | `FLOODSCOPE_GOOGLE_FLOOD_API_KEY` in `.env` |
@@ -106,7 +105,8 @@ Every source was checked live before building against it (2026-10-21 to 2026-10-
 | Satellite water maps | [Prithvi-EO-2.0 Sen1Floods11](https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11) on Sentinel-2 L2A ([Earth Search](https://earth-search.aws.element84.com/v1)) | 10 m | Apache 2.0; Copernicus |
 | Gauge forecasts (optional) | [Google Flood Forecasting](https://developers.google.com/flood-forecasting) | gauges | CC BY 4.0 |
 | Explanations (optional) | Claude via the Anthropic API | — | Anthropic terms |
-| Globe, terrain, buildings | [CesiumJS](https://cesium.com/), Cesium ion | — | Apache 2.0, ion terms |
+| Base map (Map, Satellite) | [Esri World Dark Gray Canvas and World Imagery](https://www.arcgis.com/) tiles, no key | to ~0.3 m (imagery) | Esri terms, attribution required |
+| Map and 3D views | [CesiumJS](https://cesium.com/platform/cesiumjs/) (no Cesium ion services) | — | Apache 2.0 |
 
 ## How it works
 
@@ -118,9 +118,19 @@ Every source was checked live before building against it (2026-10-21 to 2026-10-
 - **Hazard and EA:** JRC depth is read for 7 return periods plus the permanent-water and
   spurious-depth masks. EA data comes from stations within 5 km and warnings within 10 km.
 
+### The map
+- **Flat 2D map:** Cesium in 2D mode with a Web Mercator projection, like a normal web map. No
+  Cesium ion token is needed.
+- **Base maps:** a dark street map (Esri Dark Gray Canvas) and satellite imagery (Esri World
+  Imagery), with labels. Both are keyless tiles, checked live on 2026-10-24. CARTO's dark tiles
+  were tried first but now return an "API key required" image.
+- **3D only when close up:** the 3D flood view and the underground view switch the scene to 3D
+  for a window a few kilometres across, which looks flat anyway, and switch back to the same map
+  view on exit.
+
 ### Phase 2: 3D flood view
 - **Terrain:** the DEM window becomes Cesium terrain. Heights are DEM + EGM2008 geoid, so the
-  water and the ground share one surface.
+  water and the ground share one surface. The chosen base map is draped over it.
 - **1-in-N year:** the JRC depth raster is used directly, so water surface = ground + depth.
 - **Today and forecast days:**
   - A Gumbel curve (L-moments) is fitted to yearly peak flows at the GloFAS cell, 1997 to last
@@ -134,7 +144,8 @@ Every source was checked live before building against it (2026-10-21 to 2026-10-
 - **Water mesh:** built in the worker as a GLB. A Cesium `CustomShader` draws the depth colours,
   ripples and the rise animation on the GPU.
 - **Readouts:** hover depth with a human scale; flooded area counts water at least 5 cm deep;
-  max depth; and buildings touched (Cesium OSM Buildings whose centre is in water).
+  and max depth. Building counts came from Cesium OSM Buildings, which needed Cesium ion, so they
+  were removed with it.
 
 ### Phase 3: underground
 - **Soil moisture:** the latest ERA5 day for 0–7, 7–28, 28–100 and 100–255 cm, ranked against
@@ -146,7 +157,7 @@ Every source was checked live before building against it (2026-10-21 to 2026-10-
   outside ERA5's whole record (Lagos did).
 - **Groundwater:** the nearest EA borehole with a reading in the last week, within 25 km. Depth is
   the borehole datum minus the level.
-- **Underground view:** the globe turns see-through around the point and the camera can go below
+- **Underground view:** the ground turns see-through around the point and the camera can go below
   ground. The soil cut-away is drawn ×20 deeper and labelled so; the water table is drawn at its
   true depth.
 
@@ -231,11 +242,13 @@ cd web && npm test && npm run lint && npm run typecheck && npm run build
   - Infiltration is one constant rate.
   - No-data (sea) cells act as walls.
   - It is an illustration of how water spreads, not a forecast.
+- **Base map tiles come from Esri's public services.** They need no key, but Esri's terms apply
+  (attribution, and an ArcGIS account for commercial use). The first world view can take a few
+  seconds to draw on a slow connection.
 - **The EA covers England only.** Wales (NRW) and Scotland (SEPA) are not wired in.
 
 ## Not verified (need keys or long runs)
 
-- Cesium ion, Cesium OSM Buildings and Google 3D Tiles need your token.
 - The Google Flood Forecasting API needs a waitlist key. It was built from the REST reference;
   how the key is sent (header vs query) is not stated there.
 - Claude explanations need an Anthropic key. The no-key path is tested live, and the tool loop

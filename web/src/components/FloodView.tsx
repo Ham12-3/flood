@@ -33,7 +33,6 @@ interface Props {
 
 const SIZES = [2, 4, 6, 8, 10];
 const RISE_SECONDS = 3;
-const HAS_ION_TOKEN = Boolean(process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN);
 
 type Load =
   | { state: "loading" }
@@ -67,13 +66,9 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
   type Tagged<T> = { arrays: SceneArrays; value: T } | null;
   const [resultTag, setResultTag] = useState<Tagged<ComputeResult>>(null);
   const [workerErrorTag, setWorkerErrorTag] = useState<Tagged<string | null>>(null);
-  const [buildingsTag, setBuildingsTag] = useState<Tagged<{ loaded: number; touched: number } | null>>(null);
-  const [buildingsErrorTag, setBuildingsErrorTag] = useState<Tagged<string>>(null);
   const mine = <T,>(t: Tagged<T>): T | null => (t && t.arrays === arrays ? t.value : null);
   const result = mine(resultTag);
   const workerError = mine(workerErrorTag);
-  const buildings = mine(buildingsTag);
-  const buildingsError = mine(buildingsErrorTag);
 
   const sceneRef = useRef<FloodScene | null>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -132,17 +127,11 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
   useEffect(() => {
     if (!arrays) return;
     const v = getViewer();
-    if (!v) return; // the panel only opens after the globe is running
+    if (!v) return; // the panel only opens after the map is running
     const fs = new FloodScene(v.C, v.viewer, arrays);
     sceneRef.current = fs;
-    fs.enter(HAS_ION_TOKEN);
+    fs.enter();
     fs.enableHover(setHover);
-    fs.onBuildingsChanged = () => setBuildingsTag({ arrays, value: fs.buildingCounts() });
-    if (HAS_ION_TOKEN) {
-      fs.loadBuildings().catch((err: unknown) =>
-        setBuildingsErrorTag({ arrays, value: err instanceof Error ? err.message : "Cesium OSM Buildings failed to load" }),
-      );
-    }
 
     const worker = new Worker(new URL("../lib/flood/flood.worker.ts", import.meta.url), { type: "module" });
     workerRef.current = worker;
@@ -296,7 +285,7 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
           onClick={onExit}
           className="ml-auto rounded bg-[var(--surface-2)] px-3 py-1.5 text-xs hover:text-[var(--text-primary)]"
         >
-          Back to globe
+          Back to map
         </button>
       </div>
 
@@ -465,25 +454,12 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
 
           <section className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-3">
             <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">At full flood level</h3>
-            <dl className="grid grid-cols-3 gap-2 text-sm">
+            <dl className="grid grid-cols-2 gap-2 text-sm">
               <Stat label="Flooded land" value={stats ? `${stats.floodedAreaKm2.toFixed(2)} km²` : "–"} />
               <Stat label="Max depth" value={stats && stats.floodedCells ? formatLength(stats.maxDepthM, units) : "–"} />
-              <Stat
-                label="Buildings touched"
-                value={
-                  !HAS_ION_TOKEN ? "Needs token" : buildingsError ? "Unavailable" : buildings ? buildings.touched.toLocaleString("en-GB") : "Loading…"
-                }
-              />
             </dl>
             <p className="mt-2 text-[11px] leading-relaxed text-[var(--text-muted)]">
-              Flooded land is water at least 5 cm deep, leaving out permanent rivers and lakes.{" "}
-              {HAS_ION_TOKEN
-                ? buildingsError
-                  ? `Cesium OSM Buildings: ${buildingsError}.`
-                  : buildings
-                    ? `Buildings: centre point in water, out of ${buildings.loaded.toLocaleString("en-GB")} Cesium OSM Buildings loaded so far in this window (zoom in to load more).`
-                    : ""
-                : "Building counts use Cesium OSM Buildings, which need a Cesium ion token in .env."}
+              Flooded land is water at least 5 cm deep, leaving out permanent rivers and lakes.
               {result && ` Computed in ${Math.round(result.ms)} ms in a Web Worker.`}
             </p>
             <DepthLegend units={units} />
