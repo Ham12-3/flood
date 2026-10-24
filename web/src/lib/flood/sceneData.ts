@@ -17,10 +17,9 @@ export interface SceneGrid {
 /** Decoded scene arrays, ready to send to the worker. Row-major, row 0 north. */
 export interface SceneArrays {
   grid: SceneGrid;
-  ground: Float32Array; // metres above EGM2008, NaN = no data
+  ground: Float32Array; // metres above sea level (EGM2008), NaN = no data
   layers: Record<number, Uint16Array>; // return period -> depth in cm
   permanent: Uint8Array; // JRC permanent water, kept only where the ground is the water surface
-  geoid: number; // ellipsoid h = ground + geoid
 }
 
 export function base64ToBytes(b64: string): Uint8Array {
@@ -49,9 +48,6 @@ export function decodeScene(scene: SceneResponse): { arrays: SceneArrays } | { r
   if (scene.dem.status !== "ok" || !scene.dem.heights_f32) {
     return { reason: scene.dem.reason ?? "No terrain for this window." };
   }
-  if (scene.geoid_offset_m === null) {
-    return { reason: "The geoid correction could not be fetched, so terrain heights cannot be placed." };
-  }
   const layers: Record<number, Uint16Array> = {};
   let permanent: Uint8Array = new Uint8Array(n);
   if (scene.hazard.status === "ok") {
@@ -76,7 +72,6 @@ export function decodeScene(scene: SceneResponse): { arrays: SceneArrays } | { r
       ground,
       layers,
       permanent: refineWaterMask(ground, permanent, g.nx, g.ny),
-      geoid: scene.geoid_offset_m,
     },
   };
 }

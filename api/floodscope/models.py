@@ -507,3 +507,59 @@ class GroundResponse(ApiModel):
     disclaimer: str = DISCLAIMER
     soil: SoilBlock
     groundwater: GroundwaterBlock
+
+
+# --- Storm replay: hourly rain on the ground, simulated on the server ----------------
+
+ReplayStatus = Literal["running", "ok", "no_data", "error"]
+
+
+class ReplayHour(ApiModel):
+    """The state at the end of one hour (local time)."""
+
+    time: str = Field(description="Local time at the end of the hour, ISO without offset")
+    rain_mm: float = Field(description="Mean rain over the area in this hour, after any scaling")
+    sea_level_m: float | None = Field(default=None, description="Tide-driven sea level used")
+    flooded_km2: float = Field(description="Land with 10 cm of water or more")
+    max_depth_m: float
+    buildings_wet: int = Field(description="Buildings with 10 cm of water or more at the door")
+    roads_km_10cm: float = Field(description="Road length under 10 cm of water or more")
+    roads_km_30cm: float = Field(description="Road length under 30 cm or more (most cars stop)")
+
+
+class ReplayRequestEcho(ApiModel):
+    lat: float
+    lon: float
+    size_km: float
+    start: date
+    end: date
+    rain_scale: float
+    drain_mm_h: float
+
+
+class ReplayResponse(ApiModel):
+    status: ReplayStatus
+    reason: str | None = None
+    id: str
+    progress: float = Field(default=0.0, description="0-1 while running")
+    stage: str = ""
+    request: ReplayRequestEcho
+    disclaimer: str = DISCLAIMER
+    grid: SceneGrid | None = None
+    timezone: str | None = None
+    hours: list[ReplayHour] = Field(default_factory=list)
+    ground_f32: str | None = Field(
+        default=None, description="base64 float32 bare-ground height, m; NaN = sea / no data"
+    )
+    sea_u8: str | None = Field(default=None, description="base64 uint8, 1 = sea or lagoon cell")
+    buildings_total: int = 0
+    roads_km_total: float = 0.0
+    rain_total_mm: float = 0.0
+    depth_url: str | None = Field(
+        default=None,
+        description="Hourly depth frames: gzip uint16 little-endian cm, hours x ny x nx",
+    )
+    features_url: str | None = Field(default=None, description="Buildings and roads, binary")
+    sources: list[SourceInfo] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+    limits: list[str] = Field(default_factory=list)

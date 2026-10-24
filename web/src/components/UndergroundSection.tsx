@@ -6,17 +6,16 @@ import { rankText, wetnessColor } from "@/lib/underground/geometry";
 import { formatLength, type UnitSystem } from "@/lib/units";
 import Section from "./Section";
 import SourceTag from "./SourceTag";
+import UndergroundDiagram from "./UndergroundDiagram";
 
 interface Props {
   ground: GroundResponse | null;
   error: string | null;
   units: UnitSystem;
-  undergroundOn: boolean;
-  onToggle(): void;
 }
 
 /** Soil moisture by layer, the plain-English summary, and the nearest groundwater level. */
-export default function UndergroundSection({ ground, error, units, undergroundOn, onToggle }: Props) {
+export default function UndergroundSection({ ground, error, units }: Props) {
   if (error) {
     return (
       <section role="alert" className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-4 text-sm">
@@ -38,6 +37,12 @@ export default function UndergroundSection({ ground, error, units, undergroundOn
   const station = gw.station;
   return (
     <>
+      {(soil.status === "ok" || gw.status === "ok") && (
+        <section className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-3">
+          <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">Underground: cut-away</h3>
+          <UndergroundDiagram ground={ground} units={units} />
+        </section>
+      )}
       <Section title="Underground: soil moisture" status={soil.status} reason={soil.reason} source={soil.climatology_source}>
         {soil.summary && <p className="text-sm text-[var(--text-primary)]">{soil.summary}</p>}
         <table className="mt-3 w-full text-left text-sm tabular-nums">
@@ -114,14 +119,6 @@ export default function UndergroundSection({ ground, error, units, undergroundOn
         )}
       </Section>
 
-      <button
-        onClick={onToggle}
-        disabled={soil.status !== "ok" && gw.status !== "ok"}
-        aria-pressed={undergroundOn}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2 text-sm hover:text-[var(--text-primary)] disabled:opacity-40"
-      >
-        {undergroundOn ? "Hide underground view" : "Show underground view"}
-      </button>
     </>
   );
 }

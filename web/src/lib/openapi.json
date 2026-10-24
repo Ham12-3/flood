@@ -497,6 +497,166 @@
           }
         }
       }
+    },
+    "/api/replay": {
+      "get": {
+        "summary": "Replay",
+        "description": "Replay a storm: hourly rain on the ground over 1-7 days, simulated on the server.\n\nThe first request starts the job and returns status \"running\" with progress; ask\nagain (every few seconds) until it is \"ok\". Finished replays are kept on disk.",
+        "operationId": "replay_api_replay_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "description": "Latitude, WGS84 degrees",
+              "title": "Lat"
+            },
+            "description": "Latitude, WGS84 degrees"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "description": "Longitude, WGS84 degrees",
+              "title": "Lon"
+            },
+            "description": "Longitude, WGS84 degrees"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "End"
+            }
+          },
+          {
+            "name": "size_km",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 20.0,
+              "minimum": 2.0,
+              "default": 10.0,
+              "title": "Size Km"
+            }
+          },
+          {
+            "name": "rain_scale",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 5.0,
+              "minimum": 0.5,
+              "default": 1.0,
+              "title": "Rain Scale"
+            }
+          },
+          {
+            "name": "drain_mm_h",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 50.0,
+              "minimum": 0.0,
+              "default": 5.0,
+              "title": "Drain Mm H"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/replay/{replay_id}/{name}": {
+      "get": {
+        "summary": "Replay File",
+        "description": "Binary parts of a finished replay (already gzip-compressed on disk).",
+        "operationId": "replay_file_api_replay__replay_id___name__get",
+        "parameters": [
+          {
+            "name": "replay_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Replay Id"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2410,6 +2570,298 @@
           "glofas_discharge"
         ],
         "title": "PredictionDay"
+      },
+      "ReplayHour": {
+        "properties": {
+          "time": {
+            "type": "string",
+            "title": "Time",
+            "description": "Local time at the end of the hour, ISO without offset"
+          },
+          "rain_mm": {
+            "type": "number",
+            "title": "Rain Mm",
+            "description": "Mean rain over the area in this hour, after any scaling"
+          },
+          "sea_level_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sea Level M",
+            "description": "Tide-driven sea level used"
+          },
+          "flooded_km2": {
+            "type": "number",
+            "title": "Flooded Km2",
+            "description": "Land with 10 cm of water or more"
+          },
+          "max_depth_m": {
+            "type": "number",
+            "title": "Max Depth M"
+          },
+          "buildings_wet": {
+            "type": "integer",
+            "title": "Buildings Wet",
+            "description": "Buildings with 10 cm of water or more at the door"
+          },
+          "roads_km_10cm": {
+            "type": "number",
+            "title": "Roads Km 10Cm",
+            "description": "Road length under 10 cm of water or more"
+          },
+          "roads_km_30cm": {
+            "type": "number",
+            "title": "Roads Km 30Cm",
+            "description": "Road length under 30 cm or more (most cars stop)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "time",
+          "rain_mm",
+          "sea_level_m",
+          "flooded_km2",
+          "max_depth_m",
+          "buildings_wet",
+          "roads_km_10cm",
+          "roads_km_30cm"
+        ],
+        "title": "ReplayHour",
+        "description": "The state at the end of one hour (local time)."
+      },
+      "ReplayRequestEcho": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "size_km": {
+            "type": "number",
+            "title": "Size Km"
+          },
+          "start": {
+            "type": "string",
+            "format": "date",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date",
+            "title": "End"
+          },
+          "rain_scale": {
+            "type": "number",
+            "title": "Rain Scale"
+          },
+          "drain_mm_h": {
+            "type": "number",
+            "title": "Drain Mm H"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lon",
+          "size_km",
+          "start",
+          "end",
+          "rain_scale",
+          "drain_mm_h"
+        ],
+        "title": "ReplayRequestEcho"
+      },
+      "ReplayResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "progress": {
+            "type": "number",
+            "title": "Progress",
+            "description": "0-1 while running",
+            "default": 0.0
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage",
+            "default": ""
+          },
+          "request": {
+            "$ref": "#/components/schemas/ReplayRequestEcho"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "Estimates for exploration. Not an official flood warning."
+          },
+          "grid": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SceneGrid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          },
+          "hours": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayHour"
+            },
+            "type": "array",
+            "title": "Hours"
+          },
+          "ground_f32": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ground F32",
+            "description": "base64 float32 bare-ground height, m; NaN = sea / no data"
+          },
+          "sea_u8": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sea U8",
+            "description": "base64 uint8, 1 = sea or lagoon cell"
+          },
+          "buildings_total": {
+            "type": "integer",
+            "title": "Buildings Total",
+            "default": 0
+          },
+          "roads_km_total": {
+            "type": "number",
+            "title": "Roads Km Total",
+            "default": 0.0
+          },
+          "rain_total_mm": {
+            "type": "number",
+            "title": "Rain Total Mm",
+            "default": 0.0
+          },
+          "depth_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depth Url",
+            "description": "Hourly depth frames: gzip uint16 little-endian cm, hours x ny x nx"
+          },
+          "features_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Features Url",
+            "description": "Buildings and roads, binary"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceInfo"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assumptions"
+          },
+          "limits": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "id",
+          "progress",
+          "stage",
+          "request",
+          "disclaimer",
+          "grid",
+          "timezone",
+          "hours",
+          "ground_f32",
+          "sea_u8",
+          "buildings_total",
+          "roads_km_total",
+          "rain_total_mm",
+          "depth_url",
+          "features_url",
+          "sources",
+          "assumptions",
+          "limits"
+        ],
+        "title": "ReplayResponse"
       },
       "ReturnPeriodFitInfo": {
         "properties": {

@@ -1,22 +1,22 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import { fetchGround, fetchPoint, type GroundResponse, type Place, type PointResponse } from "@/lib/api";
 import { BASEMAPS, type BasemapId } from "@/lib/basemap";
 import { formatLatLon } from "@/lib/format";
-import { UndergroundScene } from "@/lib/underground/undergroundScene";
-import { formatLength, type UnitSystem } from "@/lib/units";
+import type { UnitSystem } from "@/lib/units";
 import AboutDialog from "./AboutDialog";
 import AiSection from "./AiSection";
 import FloodView from "./FloodView";
-import type { GlobeHandle } from "./Globe";
+import type { MapHandle } from "./MapView";
 import PointPanel from "./PointPanel";
+import ReplayView from "./ReplayView";
 import SearchBox from "./SearchBox";
 import UndergroundSection from "./UndergroundSection";
 
-// Cesium touches `window`, so the map never renders on the server.
-const Globe = dynamic(() => import("./Globe"), { ssr: false });
+// MapLibre touches `window`, so the map never renders on the server.
+const MapView = dynamic(() => import("./MapView"), { ssr: false });
 
 const DISCLAIMER = "Estimates for exploration. Not an official flood warning.";
 const UNITS_KEY = "floodscope.units";
@@ -63,7 +63,7 @@ function subscribeUnits(listener: () => void) {
 }
 
 export default function FloodScopeApp() {
-  const globe = useRef<GlobeHandle>(null);
+  const mapView = useRef<MapHandle>(null);
   const [selected, setSelected] = useState<Selection | null>(null);
   const [load, setLoad] = useState<Load>({ state: "idle" });
   const units = useSyncExternalStore(subscribeUnits, readUnits, () => "metric" as const);
@@ -71,9 +71,9 @@ export default function FloodScopeApp() {
   const [basemap, setBasemap] = useState<BasemapId>("map");
   const [panelOpen, setPanelOpen] = useState(true);
   const [floodMode, setFloodMode] = useState(false);
+  const [replayMode, setReplayMode] = useState(false);
   const [ground, setGround] = useState<{ key: string; data: GroundResponse | null; error: string | null } | null>(null);
-  const [undergroundOn, setUndergroundOn] = useState(false);
-  const getViewer = useCallback(() => globe.current?.getViewer() ?? null, []);
+  const getMap = useCallback(() => mapView.current?.getMap() ?? null, []);
   const abort = useRef<AbortController | null>(null);
 
   const inspect = useCallback((sel: Selection) => {
@@ -83,7 +83,7 @@ export default function FloodScopeApp() {
     abort.current?.abort();
     const ctrl = new AbortController();
     abort.current = ctrl;
-    setUndergroundOn(false);
+    setReplayMode(false);
     fetchPoint(sel.lat, sel.lon, ctrl.signal)
       .then((data) => setLoad({ state: "done", data }))
       .catch((err: unknown) => {
@@ -102,27 +102,16 @@ export default function FloodScopeApp() {
   const groundKey = selected ? `${selected.lat},${selected.lon}` : null;
   const groundNow = ground && ground.key === groundKey ? ground : null;
 
-  // Underground view: see-through ground, soil cut-away and water table.
-  const showUnderground = undergroundOn && !floodMode && groundNow?.data ? groundNow.data : null;
-  useEffect(() => {
-    if (!showUnderground || !selected) return;
-    const v = getViewer();
-    if (!v) return;
-    const scene = new UndergroundScene(v.C, v.viewer);
-    void scene.enter(selected.lat, selected.lon, showUnderground, (m) => formatLength(m, units));
-    return () => scene.exit();
-  }, [showUnderground, selected, getViewer, units]);
-
   const onPick = useCallback((lat: number, lon: number) => inspect({ lat, lon }), [inspect]);
 
   const onPlace = (p: Place) => {
-    globe.current?.flyTo(p.lat, p.lon);
+    mapView.current?.flyTo(p.lat, p.lon);
     inspect({ lat: p.lat, lon: p.lon, label: [p.name, p.country].filter(Boolean).join(", ") });
   };
 
   return (
     <main className="fixed inset-0 overflow-hidden bg-[var(--surface-0)] text-[var(--text-primary)]">
-      <Globe ref={globe} selected={selected} basemap={basemap} interactive={!floodMode} onPick={onPick} />
+      <MapView ref={mapView} selected={selected} basemap={basemap} interactive={!floodMode && !replayMode} onPick={onPick} />
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start gap-3 p-3 sm:p-4">
         <div className="pointer-events-auto flex min-w-0 flex-1 flex-wrap items-center gap-3">
@@ -175,6 +164,7 @@ export default function FloodScopeApp() {
           <div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-3">
             <div className="min-w-0 flex-1">
               {floodMode && <p className="text-xs font-medium uppercase tracking-wide text-[var(--series-1)]">3D flood view</p>}
+              {replayMode && <p className="text-xs font-medium uppercase tracking-wide text-[var(--series-1)]">Storm replay</p>}
               {selected.label && <p className="truncate text-sm font-medium">{selected.label}</p>}
               <p className="text-xs tabular-nums text-[var(--text-secondary)]">{formatLatLon(selected.lat, selected.lon)}</p>
             </div>
@@ -189,7 +179,7 @@ export default function FloodScopeApp() {
               onClick={() => {
                 abort.current?.abort();
                 setFloodMode(false);
-                setUndergroundOn(false);
+                setReplayMode(false);
                 setSelected(null);
                 setLoad({ state: "idle" });
               }}
@@ -200,8 +190,8 @@ export default function FloodScopeApp() {
             </button>
           </div>
           <div className={`flex-1 overflow-y-auto p-3 pb-16 sm:pb-3 ${panelOpen ? "" : "hidden sm:block"}`}>
-            {!floodMode && load.state === "loading" && <LoadingState />}
-            {!floodMode && load.state === "error" && (
+            {!floodMode && !replayMode && load.state === "loading" && <LoadingState />}
+            {!floodMode && !replayMode && load.state === "error" && (
               <div role="alert" className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-4 text-sm">
                 <p className="font-medium">Couldn&apos;t load data for this point</p>
                 <p className="mt-1 text-[var(--text-secondary)]">{load.message}</p>
@@ -210,15 +200,26 @@ export default function FloodScopeApp() {
                 </button>
               </div>
             )}
-            {floodMode ? (
+            {replayMode ? (
+              <ReplayView
+                lat={selected.lat}
+                lon={selected.lon}
+                units={units}
+                getMap={getMap}
+                onExit={() => {
+                  setReplayMode(false);
+                  mapView.current?.flyTo(selected.lat, selected.lon);
+                }}
+              />
+            ) : floodMode ? (
               <FloodView
                 lat={selected.lat}
                 lon={selected.lon}
                 units={units}
-                getViewer={getViewer}
+                getMap={getMap}
                 onExit={() => {
                   setFloodMode(false);
-                  globe.current?.flyTo(selected.lat, selected.lon);
+                  mapView.current?.flyTo(selected.lat, selected.lon);
                 }}
               />
             ) : (
@@ -227,18 +228,14 @@ export default function FloodScopeApp() {
                   <PointPanel
                     data={load.data}
                     units={units}
-                    onOpen3D={() => {
-                      setUndergroundOn(false);
-                      setFloodMode(true);
-                    }}
+                    onOpen3D={() => setFloodMode(true)}
+                    onReplay={() => setReplayMode(true)}
                   />
                   <AiSection lat={selected.lat} lon={selected.lon} units={units} />
                   <UndergroundSection
                     ground={groundNow?.data ?? null}
                     error={groundNow?.error ?? null}
                     units={units}
-                    undergroundOn={undergroundOn}
-                    onToggle={() => setUndergroundOn((on) => !on)}
                   />
                 </div>
               )

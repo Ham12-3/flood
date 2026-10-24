@@ -3,7 +3,6 @@ import type { ComputeResult, DepthRequest } from "./messages";
 import { blendDepth, layerDepth } from "./scenario";
 import type { SceneArrays } from "./sceneData";
 import { floodStats } from "./stats";
-import { buildWaterMesh } from "./waterMesh";
 
 /** Everything the worker does for one scenario. Kept separate from the worker so it is testable. */
 export function computeScenario(scene: SceneArrays, request: DepthRequest, id: number): ComputeResult {
@@ -44,12 +43,5 @@ export function computeScenario(scene: SceneArrays, request: DepthRequest, id: n
   }
 
   const stats = floodStats(depth, scene.permanent, scene.grid.cellW * scene.grid.cellH);
-  const mesh = buildWaterMesh({
-    grid: scene.grid,
-    ground: scene.ground,
-    depth,
-    permanent: scene.permanent,
-    geoid: scene.geoid,
-  });
-  return { type: "result", id, depth, stats, mesh, notice, ms: performance.now() - t0 };
+  return { type: "result", id, depth, stats, notice, ms: performance.now() - t0 };
 }

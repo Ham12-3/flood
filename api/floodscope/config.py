@@ -42,6 +42,15 @@ class Settings(BaseSettings):
         "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/CEMS-GLOFAS/flood_hazard"
     )
     ea_flood_url: str = "https://environment.data.gov.uk/flood-monitoring"
+    # Storm replay sources (checked live 2026-10-24).
+    open_meteo_historical_forecast_url: str = (
+        "https://historical-forecast-api.open-meteo.com/v1/forecast"
+    )
+    open_meteo_marine_url: str = "https://marine-api.open-meteo.com/v1/marine"
+    fabdem_url: str = "https://data.bris.ac.uk/datasets/s5hqmjcdj8yo2ibzi9b4ew3sn"
+    overture_stac_url: str = "https://stac.overturemaps.org"
+    overture_bucket: str = "overturemaps-us-west-2"
+    overture_region: str = "us-west-2"
 
     # Cache lifetimes in seconds.
     ttl_forecast: int = 6 * 3600

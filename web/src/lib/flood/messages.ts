@@ -18,13 +18,6 @@ export interface ComputeResult {
   id: number;
   depth: Float32Array;
   stats: FloodStats;
-  mesh: {
-    glb: ArrayBuffer;
-    origin: { lat: number; lon: number; height: number };
-    maxDepth: number;
-    vertices: number;
-    triangles: number;
-  } | null;
   /** Set when the scenario cannot be computed (e.g. no seeds for a custom rise). */
   notice: string | null;
   ms: number;

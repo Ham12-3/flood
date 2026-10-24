@@ -17,6 +17,11 @@ export function formatLength(metres: number, units: UnitSystem, digits = 1): str
     : `${fmt(metres * FEET_PER_METRE, digits)} ft`;
 }
 
+/** Small depths: whole centimetres, or inches in imperial (10 cm -> "4 in"). */
+export function formatShortLength(metres: number, units: UnitSystem): string {
+  return units === "metric" ? `${Math.round(metres * 100)} cm` : `${Math.round(metres * FEET_PER_METRE * 12)} in`;
+}
+
 export function lengthValue(metres: number, units: UnitSystem): number {
   return units === "metric" ? metres : metres * FEET_PER_METRE;
 }

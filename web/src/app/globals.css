@@ -32,10 +32,15 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-/* Cesium credits sit above the disclaimer bar. */
-.cesium-viewer-bottom {
-  bottom: 2.25rem !important;
+/* Map controls and credits sit above the disclaimer bar, styled for the dark UI. */
+.maplibregl-ctrl-bottom-left,
+.maplibregl-ctrl-bottom-right {
+  bottom: 2.25rem;
 }
-.cesium-widget-credits {
-  font-size: 10px;
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  background: var(--surface-1);
+  color: var(--text-secondary);
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--text-secondary);
 }

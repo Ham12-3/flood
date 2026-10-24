@@ -1,8 +1,9 @@
 """FastAPI app. Run with: uv run uvicorn floodscope.main:app --reload"""
 
+import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated
 
 import httpx
@@ -24,11 +25,16 @@ from floodscope.models import (
     GroundResponse,
     PointResponse,
     PredictResponse,
+    ReplayResponse,
     SatelliteResponse,
     SceneResponse,
 )
 from floodscope.point import build_point
 from floodscope.predict import build_prediction
+from floodscope.replay.build import MAX_SIZE_KM as REPLAY_MAX_KM
+from floodscope.replay.build import MIN_SIZE_KM as REPLAY_MIN_KM
+from floodscope.replay.build import ReplayParams
+from floodscope.replay.jobs import ReplayJobs
 from floodscope.satellite import list_results, overlay_path
 from floodscope.scene import build_scene
 from floodscope.sources.geocode import search_places
@@ -39,6 +45,7 @@ from floodscope.sources.google_flood import get_google_flood
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     app.state.cache = ResponseCache(settings.cache_dir)
+    app.state.replays = ReplayJobs(settings.cache_dir / "replay")
     app.state.http = httpx.AsyncClient(
         timeout=settings.http_timeout_s,
         headers={"User-Agent": settings.user_agent},
@@ -48,6 +55,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await app.state.replays.close()
         await app.state.http.aclose()
         app.state.cache.close()
 
@@ -168,3 +176,50 @@ async def geocode(
         )
     except httpx.HTTPError as exc:
         raise HTTPException(status_code=502, detail=f"Place search unavailable: {exc}") from exc
+
+
+@app.get("/api/replay", response_model=ReplayResponse)
+async def replay(
+    request: Request,
+    lat: Lat,
+    lon: Lon,
+    start: date,
+    end: date,
+    size_km: Annotated[float, Query(ge=REPLAY_MIN_KM, le=REPLAY_MAX_KM)] = 10.0,
+    rain_scale: Annotated[float, Query(ge=0.5, le=5.0)] = 1.0,
+    drain_mm_h: Annotated[float, Query(ge=0.0, le=50.0)] = 5.0,
+) -> ReplayResponse:
+    """Replay a storm: hourly rain on the ground over 1-7 days, simulated on the server.
+
+    The first request starts the job and returns status "running" with progress; ask
+    again (every few seconds) until it is "ok". Finished replays are kept on disk.
+    """
+    try:
+        params = ReplayParams.normalised(lat, lon, size_km, start, end, rain_scale, drain_mm_h)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    jobs: ReplayJobs = request.app.state.replays
+    return await jobs.request(
+        params,
+        datetime.now(UTC).date(),
+        request.app.state.http,
+        request.app.state.cache,
+        get_settings(),
+    )
+
+
+_REPLAY_FILES = {"depth.bin": "depth.bin.gz", "features.bin": "features.bin.gz"}
+
+
+@app.get("/api/replay/{replay_id}/{name}")
+async def replay_file(request: Request, replay_id: str, name: str) -> FileResponse:
+    """Binary parts of a finished replay (already gzip-compressed on disk)."""
+    jobs: ReplayJobs = request.app.state.replays
+    folder = jobs.result_dir(replay_id) if re.fullmatch(r"[0-9a-f]{16}", replay_id) else None
+    if folder is None or name not in _REPLAY_FILES:
+        raise HTTPException(status_code=404, detail="No such replay file")
+    return FileResponse(
+        folder / _REPLAY_FILES[name],
+        media_type="application/octet-stream",
+        headers={"Content-Encoding": "gzip", "Cache-Control": "public, max-age=86400"},
+    )

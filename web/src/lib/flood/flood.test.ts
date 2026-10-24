@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { computeScenario } from "./compute";
-import { enuFrame, toEcef, toEnu } from "./geodesy";
-import { writeGlb } from "./glb";
+import { encodeTerrarium, paintWater, risenDepth, terrainHeight } from "./floodMap";
 import { humanScale } from "./humanScale";
 import { blendDepth, layerDepth, scenarioKey } from "./scenario";
 import { base64ToBytes, cellIndex, sampleGround, type SceneArrays, type SceneGrid } from "./sceneData";
 import { floodStats } from "./stats";
-import { buildWaterMesh, PERMANENT_DISPLAY_DEPTH } from "./waterMesh";
 
 const GRID: SceneGrid = {
   west: 0,
@@ -89,52 +87,6 @@ describe("scene helpers", () => {
   });
 });
 
-describe("geodesy", () => {
-  it("matches known ECEF coordinates", () => {
-    const [x, y, z] = toEcef(0, 0, 0);
-    expect(x).toBeCloseTo(6378137, 3);
-    expect(y).toBeCloseTo(0, 6);
-    expect(z).toBeCloseTo(0, 6);
-    const pole = toEcef(90, 0, 0);
-    expect(pole[2]).toBeCloseTo(6356752.3142, 3);
-  });
-
-  it("maps a point 100 m north and 10 m up into ENU", () => {
-    const frame = enuFrame(51.5, -0.12, 50);
-    const metresPerDegLat = 111_257; // at 51.5 N
-    const [e, n, u] = toEnu(frame, toEcef(51.5 + 100 / metresPerDegLat, -0.12, 60));
-    expect(e).toBeCloseTo(0, 1);
-    expect(n).toBeCloseTo(100, 0);
-    expect(u).toBeCloseTo(10, 1);
-  });
-});
-
-describe("writeGlb", () => {
-  it("writes a valid GLB header and JSON chunk", () => {
-    const glb = writeGlb({
-      positions: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
-      scalars: { _DEPTH: new Float32Array([1, 2, 3]) },
-      indices: new Uint32Array([0, 1, 2]),
-    });
-    const view = new DataView(glb);
-    expect(view.getUint32(0, true)).toBe(0x46546c67);
-    expect(view.getUint32(8, true)).toBe(glb.byteLength);
-    expect(glb.byteLength % 4).toBe(0);
-    const jsonLength = view.getUint32(12, true);
-    const json = JSON.parse(new TextDecoder().decode(new Uint8Array(glb, 20, jsonLength)));
-    const prim = json.meshes[0].primitives[0];
-    expect(prim.attributes).toEqual({ POSITION: 0, _DEPTH: 1 });
-    expect(json.accessors[0].max).toEqual([1, 1, 0]);
-    expect(json.accessors[prim.indices].count).toBe(3);
-  });
-
-  it("rejects attribute names without an underscore", () => {
-    expect(() =>
-      writeGlb({ positions: new Float32Array(3), scalars: { DEPTH: new Float32Array(1) }, indices: new Uint32Array(0) }),
-    ).toThrow();
-  });
-});
-
 function scene(): SceneArrays {
   // A 4x3 valley: river (permanent) down column 1, ground rising to the east.
   const ground = new Float32Array([2, 0, 3, 8, 2, 0, 3, 8, 2, 0, 3, 8]);
@@ -143,7 +95,6 @@ function scene(): SceneArrays {
     grid: GRID,
     ground,
     permanent,
-    geoid: 40,
     layers: {
       10: new Uint16Array([0, 300, 0, 0, 0, 300, 0, 0, 0, 300, 0, 0]),
       20: new Uint16Array([100, 400, 100, 0, 100, 400, 100, 0, 100, 400, 100, 0]),
@@ -151,28 +102,45 @@ function scene(): SceneArrays {
   };
 }
 
-describe("buildWaterMesh", () => {
-  it("returns null when nothing is wet", () => {
+describe("water painting", () => {
+  it("colours flood depth, keeps rivers blue and leaves dry land clear", () => {
     const s = scene();
-    s.permanent.fill(0);
-    expect(buildWaterMesh({ ...s, depth: new Float32Array(12) })).toBeNull();
+    const rgba = new Uint8ClampedArray(12 * 4);
+    const depth = new Float32Array([0, 3, 0.5, 0.02, 0, 0, 0, 0, 0, 0, 0, 0]);
+    paintWater(rgba, s, depth, 1, 3);
+    const px = (i: number) => Array.from(rgba.slice(4 * i, 4 * i + 4));
+    expect(px(0)[3]).toBe(0); // dry
+    expect(px(2)[3]).toBeGreaterThan(0); // 50 cm of flood water
+    expect(px(3)[3]).toBe(0); // a 2 cm film is not drawn
+    expect(px(5)).toEqual([0x39, 0x87, 0xe5, 205]); // river with no modelled depth
   });
 
-  it("covers wet cells plus a ring, with bank vertices below the water level", () => {
-    const s = scene();
-    const mesh = buildWaterMesh({ ...s, depth: layerDepth(s.layers[10]) });
-    expect(mesh).not.toBeNull();
-    // Wet column 1 plus ring columns 0 and 2 -> 9 vertices; column 3 is not touched.
-    expect(mesh!.vertices).toBe(9);
-    expect(mesh!.maxDepth).toBe(3);
-    expect(mesh!.triangles).toBe(8);
-    expect(mesh!.origin.height).toBeCloseTo(40 + 13 / 4, 5);
+  it("lowers everything by the deepest depth at the start of the rise", () => {
+    expect(risenDepth(3, 0, 3)).toBe(0);
+    expect(risenDepth(3, 0.5, 3)).toBe(1.5);
+    expect(risenDepth(1, 0.5, 3)).toBe(0);
+    expect(risenDepth(1, 1, 3)).toBe(1);
+  });
+});
+
+describe("terrain tiles", () => {
+  it("encodes terrarium heights that decode back", () => {
+    const out = new Uint8ClampedArray(4);
+    for (const h of [0, 12.5, -3.25, 1601.75]) {
+      encodeTerrarium(h, out, 0);
+      expect(out[0] * 256 + out[1] + out[2] / 256 - 32768).toBeCloseTo(h, 2);
+      expect(out[3]).toBe(255);
+    }
   });
 
-  it("shows permanent water without a modelled depth at the display depth", () => {
-    const s = scene();
-    const mesh = buildWaterMesh({ ...s, depth: new Float32Array(12) });
-    expect(mesh!.maxDepth).toBe(PERMANENT_DISPLAY_DEPTH);
+  it("uses the window inside and eases to the median outside", () => {
+    const ground = new Float32Array([0, 10, 20, 30, 0, 10, 20, 30, 0, 10, 20, 30]);
+    const s = { grid: GRID, ground };
+    expect(terrainHeight(s, 0.0015, 0.0015, 15)).toBeCloseTo(sampleGround(s, 0.0015, 0.0015));
+    const near = terrainHeight(s, 0.0015, 0.0041, 15); // just east of the window
+    const far = terrainHeight(s, 0.0015, 0.05, 15); // ~5 km east
+    expect(near).toBeCloseTo(30, 0);
+    expect(Math.abs(far - 15)).toBeLessThan(0.2);
   });
 });
 
@@ -188,7 +156,6 @@ describe("computeScenario", () => {
 
     const banks = computeScenario(s, { kind: "banks" }, 3);
     expect(banks.stats.floodedCells).toBe(0);
-    expect(banks.mesh).not.toBeNull(); // permanent water still drawn
 
     const custom = computeScenario(s, { kind: "custom", rise: 2.5 }, 4);
     // Level 2.5 floods the 2 m bank (0.5 deep) but not the 3 m one.
@@ -203,7 +170,6 @@ describe("computeScenario", () => {
     s.permanent.fill(0);
     const r = computeScenario(s, { kind: "custom", rise: 1 }, 1);
     expect(r.notice).toMatch(/No river or lake/);
-    expect(r.mesh).toBeNull();
   });
 });
 

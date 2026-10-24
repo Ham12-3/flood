@@ -86,11 +86,32 @@ const DATASETS: { name: string; by: string; licence: string; url: string; use: s
     use: "Base map tiles (Map and Satellite)",
   },
   {
-    name: "CesiumJS",
-    by: "Cesium GZ, Inc.",
-    licence: "Apache 2.0",
-    url: "https://cesium.com/platform/cesiumjs/",
-    use: "Flat map and the 3D terrain views (no Cesium ion services used)",
+    name: "FABDEM V1-2",
+    by: "University of Bristol (Hawker et al. 2022), from Copernicus DEM GLO-30",
+    licence: "CC BY-NC-SA 4.0 (non-commercial)",
+    url: "https://data.bris.ac.uk/data/dataset/s5hqmjcdj8yo2ibzi9b4ew3sn",
+    use: "Bare-ground heights (buildings and trees removed) for storm replays",
+  },
+  {
+    name: "Hourly rain and sea level (Open-Meteo)",
+    by: "National weather services (ECMWF IFS, DWD ICON, NOAA and others) and ERA5, via the Open-Meteo forecast, historical forecast, archive and marine APIs",
+    licence: "CC BY 4.0. Open-Meteo free API is for non-commercial use",
+    url: "https://open-meteo.com/en/docs/historical-forecast-api",
+    use: "Rain each hour and the tide for storm replays",
+  },
+  {
+    name: "Overture Maps buildings and roads",
+    by: "Overture Maps Foundation: OpenStreetMap contributors, plus Google Open Buildings and Microsoft ML footprints",
+    licence: "ODbL 1.0; some buildings CDLA Permissive 2.0 or CC BY 4.0",
+    url: "https://docs.overturemaps.org/",
+    use: "Buildings with water at the door and roads under water in storm replays",
+  },
+  {
+    name: "MapLibre GL JS",
+    by: "MapLibre contributors",
+    licence: "BSD 3-Clause",
+    url: "https://maplibre.org/",
+    use: "The map, the 3D terrain view and the storm replay layers",
   },
 ];
 

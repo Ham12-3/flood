@@ -23,9 +23,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
   }
   try {
     const result = computeScenario(scene, msg.request, msg.id);
-    const transfer: Transferable[] = [result.depth.buffer];
-    if (result.mesh) transfer.push(result.mesh.glb);
-    post(result, transfer);
+    post(result, [result.depth.buffer]);
   } catch (err) {
     post({ type: "error", id: msg.id, message: err instanceof Error ? err.message : String(err) });
   }

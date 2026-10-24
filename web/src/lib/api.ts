@@ -24,6 +24,8 @@ export type ExplainResponse = components["schemas"]["ExplainResponse"];
 export type GoogleFloodResponse = components["schemas"]["GoogleFloodResponse"];
 export type SatelliteResponse = components["schemas"]["SatelliteResponse"];
 export type SatelliteResult = components["schemas"]["SatelliteResult"];
+export type ReplayResponse = components["schemas"]["ReplayResponse"];
+export type ReplayHour = components["schemas"]["ReplayHour"];
 
 export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000").replace(
   /\/$/,
@@ -106,4 +108,44 @@ export function explainPoint(
 
 export function geocode(query: string, signal?: AbortSignal): Promise<GeocodeResponse> {
   return getJson<GeocodeResponse>("/api/geocode", { q: query }, signal);
+}
+
+export interface ReplayRequest {
+  lat: number;
+  lon: number;
+  start: string; // YYYY-MM-DD, local days
+  end: string;
+  sizeKm: number;
+  rainScale: number;
+  drainMmH: number;
+}
+
+/** Starts a storm replay if needed; returns its progress or the finished result. */
+export function fetchReplay(r: ReplayRequest, signal?: AbortSignal): Promise<ReplayResponse> {
+  return getJson<ReplayResponse>(
+    "/api/replay",
+    {
+      lat: String(r.lat),
+      lon: String(r.lon),
+      start: r.start,
+      end: r.end,
+      size_km: String(r.sizeKm),
+      rain_scale: String(r.rainScale),
+      drain_mm_h: String(r.drainMmH),
+    },
+    signal,
+  );
+}
+
+/** A binary file from the API (the server sends it gzip-encoded; fetch un-gzips it). */
+export async function fetchBinary(path: string, signal?: AbortSignal): Promise<ArrayBuffer> {
+  let resp: Response;
+  try {
+    resp = await fetch(`${API_BASE_URL}${path}`, { signal });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new ApiError(`Could not reach the FloodScope API at ${API_BASE_URL}. Is the backend running?`, 0);
+  }
+  if (!resp.ok) throw new ApiError(`API error ${resp.status}: ${resp.statusText}`, resp.status);
+  return resp.arrayBuffer();
 }

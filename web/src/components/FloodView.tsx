@@ -10,16 +10,15 @@ import {
   type SatelliteResponse,
   type SceneResponse,
 } from "@/lib/api";
-import type { Cesium } from "@/lib/cesium";
 import { describeForecast, forecastRequest, formatReturnPeriod } from "@/lib/flood/describe";
-import { DEPTH_STOPS, FloodScene, type HoverInfo } from "@/lib/flood/floodScene";
+import { DEPTH_STOPS, FloodMap, type HoverInfo } from "@/lib/flood/floodMap";
 import { humanScale } from "@/lib/flood/humanScale";
 import type { ComputeResult, DepthRequest, WorkerResponse } from "@/lib/flood/messages";
 import { RETURN_PERIODS, type Scenario } from "@/lib/flood/scenario";
 import { decodeScene, type SceneArrays } from "@/lib/flood/sceneData";
 import { formatDay } from "@/lib/format";
 import { formatLength, type UnitSystem } from "@/lib/units";
-import type * as CesiumNS from "cesium";
+import type { MapLibre, MLMap } from "@/lib/maplibre";
 import SimulationPanel from "./SimulationPanel";
 import SourceTag from "./SourceTag";
 
@@ -27,12 +26,13 @@ interface Props {
   lat: number;
   lon: number;
   units: UnitSystem;
-  getViewer(): { C: Cesium; viewer: CesiumNS.Viewer } | null;
+  getMap(): { ml: MapLibre; map: MLMap } | null;
   onExit(): void;
 }
 
 const SIZES = [2, 4, 6, 8, 10];
 const RISE_SECONDS = 3;
+const EXAGGERATIONS = [1, 2, 4];
 
 type Load =
   | { state: "loading" }
@@ -41,7 +41,7 @@ type Load =
 
 type Tab = "today" | "forecast" | "ai" | "returnPeriod" | "custom" | "simulate";
 
-export default function FloodView({ lat, lon, units, getViewer, onExit }: Props) {
+export default function FloodView({ lat, lon, units, getMap, onExit }: Props) {
   const [sizeKm, setSizeKm] = useState(4);
   const [userTab, setUserTab] = useState<Tab | null>(null);
   const [day, setDay] = useState(1);
@@ -54,6 +54,8 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
   const [progress, setProgress] = useState(1);
   const [playing, setPlaying] = useState(false);
   const [hover, setHover] = useState<HoverInfo | null>(null);
+  const [exaggeration, setExaggeration] = useState(1);
+  const exaggerationRef = useRef(exaggeration);
 
   // State below is tagged with the window (key) or scene (arrays) it belongs to, so a new
   // window starts clean without resetting state inside effects.
@@ -70,7 +72,7 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
   const result = mine(resultTag);
   const workerError = mine(workerErrorTag);
 
-  const sceneRef = useRef<FloodScene | null>(null);
+  const sceneRef = useRef<FloodMap | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const requestId = useRef(0);
   const animateNext = useRef(true); // simulation frames are shown as they are, without the rise
@@ -123,14 +125,14 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
   const defaultTab: Tab = hasForecast ? "today" : hasHazard ? "returnPeriod" : "custom";
   const tab: Tab = userTab && enabled[userTab] ? userTab : defaultTab;
 
-  // 2. Set up the Cesium scene and the worker for this window.
+  // 2. Set up the terrain, the water layer and the worker for this window.
   useEffect(() => {
     if (!arrays) return;
-    const v = getViewer();
-    if (!v) return; // the panel only opens after the map is running
-    const fs = new FloodScene(v.C, v.viewer, arrays);
+    const m = getMap();
+    if (!m) return; // the panel only opens after the map is running
+    const fs = new FloodMap(m.map, arrays);
     sceneRef.current = fs;
-    fs.enter();
+    fs.enter(exaggerationRef.current);
     fs.enableHover(setHover);
 
     const worker = new Worker(new URL("../lib/flood/flood.worker.ts", import.meta.url), { type: "module" });
@@ -146,12 +148,8 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
       }
       setWorkerErrorTag({ arrays, value: null });
       setResultTag({ arrays, value: msg });
-      fs.setWater(msg.mesh, msg.depth).catch((err: unknown) =>
-        setWorkerErrorTag({
-          arrays,
-          value: err instanceof Error ? `Could not draw the water: ${err.message}` : "Could not draw the water",
-        }),
-      );
+      if (animateNext.current) fs.setProgress(0); // the rise starts from below
+      fs.setWater(msg.depth);
       if (animateNext.current) {
         playStart.current = performance.now();
         setPlaying(true);
@@ -174,9 +172,14 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
       sceneRef.current = null;
       setHover(null);
     };
-  }, [arrays, getViewer]);
+  }, [arrays, getMap]);
 
-  // Simulation frames go straight to the worker for meshing and stats.
+  useEffect(() => {
+    exaggerationRef.current = exaggeration;
+    sceneRef.current?.setExaggeration(exaggeration);
+  }, [exaggeration]);
+
+  // Simulation frames go straight to the worker for stats.
   const showSimulatedDepth = useCallback((depth: Float32Array) => {
     const worker = workerRef.current;
     if (!worker) return;
@@ -210,7 +213,7 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
   useEffect(() => {
     const fs = sceneRef.current;
     if (!fs) return;
-    fs.setOverlay(overlayUrl, satellite?.bounds).catch(() => setOverlayOn(false));
+    fs.setOverlay(overlayUrl, satellite?.bounds);
   }, [overlayUrl, satellite, arrays]);
 
   const requestKey = request ? JSON.stringify(request) : null;
@@ -281,6 +284,19 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
             {g.nx} × {g.ny} cells of {Math.round(g.cell_size_m[0])} × {Math.round(g.cell_size_m[1])} m
           </span>
         )}
+        <div role="group" aria-label="Height exaggeration" className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
+          Heights
+          {EXAGGERATIONS.map((x) => (
+            <button
+              key={x}
+              onClick={() => setExaggeration(x)}
+              aria-pressed={exaggeration === x}
+              className={`rounded px-1.5 py-0.5 ${exaggeration === x ? "bg-[var(--surface-2)] text-[var(--text-primary)]" : ""}`}
+            >
+              ×{x}
+            </button>
+          ))}
+        </div>
         <button
           onClick={onExit}
           className="ml-auto rounded bg-[var(--surface-2)] px-3 py-1.5 text-xs hover:text-[var(--text-primary)]"
@@ -467,7 +483,8 @@ export default function FloodView({ lat, lon, units, getViewer, onExit }: Props)
 
           <section className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-3 text-xs text-[var(--text-secondary)]">
             <p>
-              Terrain: our DEM window, placed with the EGM2008 geoid ({scene.geoid_offset_m?.toFixed(1)} m here).{" "}
+              Terrain: our 30 m height map of this window, heights above sea level
+              {exaggeration > 1 ? `, drawn ${exaggeration}× taller so the slopes show` : ""}. Outside the window the map is dimmed.{" "}
               {scene.hazard.note}
             </p>
             {scene.hazard.spurious_depth_in_window && (

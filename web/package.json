@@ -10,11 +10,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "gen:api": "cd ../api && uv run python scripts/export_openapi.py ../web/src/lib/openapi.json && cd ../web && openapi-typescript src/lib/openapi.json -o src/lib/api-types.ts",
-    "postinstall": "node scripts/copy-cesium.mjs"
+    "postinstall": "node scripts/copy-maplibre.mjs"
   },
   "dependencies": {
     "@next/env": "^16.4.2",
-    "cesium": "^1.146.0",
+    "maplibre-gl": "6.13.0",
     "next": "16.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0"

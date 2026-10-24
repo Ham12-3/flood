@@ -5,6 +5,7 @@ import {
   formatDischarge,
   formatGaugeValue,
   formatLength,
+  formatShortLength,
   lengthValue,
 } from "./units";
 
@@ -18,6 +19,13 @@ describe("lengths", () => {
   it("converts one metre to 3.28 feet", () => {
     expect(lengthValue(1, "imperial")).toBeCloseTo(3.2808, 4);
     expect(lengthValue(1, "metric")).toBe(1);
+  });
+
+  it("formats small depths in centimetres or inches", () => {
+    expect(formatShortLength(0.1, "metric")).toBe("10 cm");
+    expect(formatShortLength(0.3, "metric")).toBe("30 cm");
+    expect(formatShortLength(0.1, "imperial")).toBe("4 in");
+    expect(formatShortLength(0.3, "imperial")).toBe("12 in");
   });
 
   it("keeps thousands separators", () => {

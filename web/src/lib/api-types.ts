@@ -195,6 +195,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Replay
+         * @description Replay a storm: hourly rain on the ground over 1-7 days, simulated on the server.
+         *
+         *     The first request starts the job and returns status "running" with progress; ask
+         *     again (every few seconds) until it is "ok". Finished replays are kept on disk.
+         */
+        get: operations["replay_api_replay_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/replay/{replay_id}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Replay File
+         * @description Binary parts of a finished replay (already gzip-compressed on disk).
+         */
+        get: operations["replay_file_api_replay__replay_id___name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -796,6 +839,147 @@ export interface components {
              * @description GloFAS ensemble-mean forecast for the same day, m3/s
              */
             glofas_discharge: number | null;
+        };
+        /**
+         * ReplayHour
+         * @description The state at the end of one hour (local time).
+         */
+        ReplayHour: {
+            /**
+             * Time
+             * @description Local time at the end of the hour, ISO without offset
+             */
+            time: string;
+            /**
+             * Rain Mm
+             * @description Mean rain over the area in this hour, after any scaling
+             */
+            rain_mm: number;
+            /**
+             * Sea Level M
+             * @description Tide-driven sea level used
+             */
+            sea_level_m: number | null;
+            /**
+             * Flooded Km2
+             * @description Land with 10 cm of water or more
+             */
+            flooded_km2: number;
+            /** Max Depth M */
+            max_depth_m: number;
+            /**
+             * Buildings Wet
+             * @description Buildings with 10 cm of water or more at the door
+             */
+            buildings_wet: number;
+            /**
+             * Roads Km 10Cm
+             * @description Road length under 10 cm of water or more
+             */
+            roads_km_10cm: number;
+            /**
+             * Roads Km 30Cm
+             * @description Road length under 30 cm or more (most cars stop)
+             */
+            roads_km_30cm: number;
+        };
+        /** ReplayRequestEcho */
+        ReplayRequestEcho: {
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /** Size Km */
+            size_km: number;
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Rain Scale */
+            rain_scale: number;
+            /** Drain Mm H */
+            drain_mm_h: number;
+        };
+        /** ReplayResponse */
+        ReplayResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "ok" | "no_data" | "error";
+            /** Reason */
+            reason: string | null;
+            /** Id */
+            id: string;
+            /**
+             * Progress
+             * @description 0-1 while running
+             * @default 0
+             */
+            progress: number;
+            /**
+             * Stage
+             * @default
+             */
+            stage: string;
+            request: components["schemas"]["ReplayRequestEcho"];
+            /**
+             * Disclaimer
+             * @default Estimates for exploration. Not an official flood warning.
+             */
+            disclaimer: string;
+            grid: components["schemas"]["SceneGrid"] | null;
+            /** Timezone */
+            timezone: string | null;
+            /** Hours */
+            hours: components["schemas"]["ReplayHour"][];
+            /**
+             * Ground F32
+             * @description base64 float32 bare-ground height, m; NaN = sea / no data
+             */
+            ground_f32: string | null;
+            /**
+             * Sea U8
+             * @description base64 uint8, 1 = sea or lagoon cell
+             */
+            sea_u8: string | null;
+            /**
+             * Buildings Total
+             * @default 0
+             */
+            buildings_total: number;
+            /**
+             * Roads Km Total
+             * @default 0
+             */
+            roads_km_total: number;
+            /**
+             * Rain Total Mm
+             * @default 0
+             */
+            rain_total_mm: number;
+            /**
+             * Depth Url
+             * @description Hourly depth frames: gzip uint16 little-endian cm, hours x ny x nx
+             */
+            depth_url: string | null;
+            /**
+             * Features Url
+             * @description Buildings and roads, binary
+             */
+            features_url: string | null;
+            /** Sources */
+            sources: components["schemas"]["SourceInfo"][];
+            /** Assumptions */
+            assumptions: string[];
+            /** Limits */
+            limits: string[];
         };
         /** ReturnPeriodFitInfo */
         ReturnPeriodFitInfo: {
@@ -1482,6 +1666,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GeocodeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replay_api_replay_get: {
+        parameters: {
+            query: {
+                /** @description Latitude, WGS84 degrees */
+                lat: number;
+                /** @description Longitude, WGS84 degrees */
+                lon: number;
+                start: string;
+                end: string;
+                size_km?: number;
+                rain_scale?: number;
+                drain_mm_h?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replay_file_api_replay__replay_id___name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                replay_id: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

@@ -75,13 +75,19 @@ class WindowRead:
 
 
 def read_window(
-    paths: list[str], bounds: Bounds, res: tuple[float, float], user_agent: str = ""
+    paths: list[str],
+    bounds: Bounds,
+    res: tuple[float, float],
+    user_agent: str = "",
+    resampling: Resampling = Resampling.nearest,
+    allowed_extensions: str = ".tif",
 ) -> WindowRead:
     """Mosaic a lat/lon window from one or more rasters at the given resolution.
 
     Pixels missing from every source (or equal to a source's nodata) come back as NaN.
     """
     env = dict(GDAL_ENV)
+    env["CPL_VSIL_CURL_ALLOWED_EXTENSIONS"] = allowed_extensions
     if user_agent:
         env["GDAL_HTTP_USERAGENT"] = user_agent
     try:
@@ -94,7 +100,7 @@ def read_window(
                     res=res,
                     nodata=np.nan,
                     dtype="float32",
-                    resampling=Resampling.nearest,
+                    resampling=resampling,
                 )
             finally:
                 for s in sources:

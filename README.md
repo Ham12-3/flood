@@ -7,6 +7,9 @@ Click anywhere on a flat world map and see what open flood data says about that 
 - **Underground:** how wet the soil is for the time of year, and the water table.
 - **AI:** a 1–7 day flow forecast (LSTM), a Claude-written explanation, Google Flood Hub status, and satellite water maps of past floods.
 - **Simulation:** a WebGPU shallow-water model of river inflow and rain.
+- **Storm replay:** pick any place and up to 7 days (past, or the next 15 days). The server moves
+  the hourly rain across the bare ground and shows, hour by hour, where water collects, which
+  roads go under and which buildings get water at the door.
 
 > **Estimates for exploration. Not an official flood warning.** In England use
 > [Check for flooding](https://check-for-flooding.service.gov.uk/). Elsewhere, follow your
@@ -29,7 +32,7 @@ data; until then they say so instead of guessing:
 
 ```
 api/   FastAPI backend: data clients, raster reads, caching, AI endpoints (Python 3.12+, uv)
-web/   Next.js 16 App Router + CesiumJS + Tailwind (TypeScript strict); Web Workers and WebGPU
+web/   Next.js 16 App Router + MapLibre GL JS + Tailwind (TypeScript strict); Web Workers and WebGPU
 ml/    Forecast model (NeuralHydrology on Caravan, exported to ONNX) and the Prithvi satellite job
 .env.example   one env file for everything
 ```
@@ -56,7 +59,7 @@ Or run it in a container from the repo root: `docker compose up --build`.
 
 ```bash
 cd web
-npm install        # also copies Cesium's static assets into public/cesium
+npm install        # also copies MapLibre's worker and CSS into public/maplibre
 npm run dev
 ```
 
@@ -87,6 +90,8 @@ independently, and the UI prints the source under every number. The frontend typ
 | `POST /api/explain` | Claude's plain-English explanation, using only numbers from FloodScope's tools |
 | `GET /api/google-flood?lat&lon` | Google Flood Hub gauges, status and forecasts near the point (feature flag) |
 | `GET /api/satellite?lat&lon` | Prithvi satellite water maps covering the point; PNG at `/api/satellite/{id}/overlay.png` |
+| `GET /api/replay?lat&lon&start&end&size_km&rain_scale&drain_mm_h` | Storm replay. The first call starts a background job and returns `running` with progress; poll until `ok`. Hourly counts, grid, sources, assumptions |
+| `GET /api/replay/{id}/depth.bin`, `/features.bin` | Hourly depth frames (uint16 cm) and buildings and roads (binary layout in `api/floodscope/replay/features.py`) |
 | `GET /api/geocode?q` | Place search |
 
 ## Data sources
@@ -106,7 +111,11 @@ Every source was checked live before building against it (2026-10-21 to 2026-10-
 | Gauge forecasts (optional) | [Google Flood Forecasting](https://developers.google.com/flood-forecasting) | gauges | CC BY 4.0 |
 | Explanations (optional) | Claude via the Anthropic API | — | Anthropic terms |
 | Base map (Map, Satellite) | [Esri World Dark Gray Canvas and World Imagery](https://www.arcgis.com/) tiles, no key | to ~0.3 m (imagery) | Esri terms, attribution required |
-| Map and 3D views | [CesiumJS](https://cesium.com/platform/cesiumjs/) (no Cesium ion services) | — | Apache 2.0 |
+| Bare ground for replays | [FABDEM V1-2](https://data.bris.ac.uk/data/dataset/s5hqmjcdj8yo2ibzi9b4ew3sn) (Copernicus DEM with buildings and trees removed), read inside the remote zips | 1″ (~30 m), built into ~60 m cells | CC BY-NC-SA 4.0 (non-commercial) |
+| Hourly rain for replays | Open-Meteo [historical forecast](https://open-meteo.com/en/docs/historical-forecast-api) (2022 on), [ERA5 archive](https://open-meteo.com/en/docs/historical-weather-api) (earlier) and [forecast](https://open-meteo.com/en/docs) (last 30 / next 15 days) | 1–25 km, hourly | CC BY 4.0 |
+| Tide for replays | [Open-Meteo Marine](https://open-meteo.com/en/docs/marine-weather-api) `sea_level_height_msl` | ~8 km, hourly | CC BY 4.0 |
+| Buildings and roads for replays | [Overture Maps](https://docs.overturemaps.org/) GeoParquet on AWS (OpenStreetMap + Google + Microsoft buildings) | outlines | ODbL 1.0 and others |
+| Map, 3D terrain view, replay layers | [MapLibre GL JS](https://maplibre.org/) 6.13 | — | BSD 3-Clause |
 
 ## How it works
 
@@ -119,18 +128,18 @@ Every source was checked live before building against it (2026-10-21 to 2026-10-
   spurious-depth masks. EA data comes from stations within 5 km and warnings within 10 km.
 
 ### The map
-- **Flat 2D map:** Cesium in 2D mode with a Web Mercator projection, like a normal web map. No
-  Cesium ion token is needed.
+- **Flat map:** MapLibre GL JS, Web Mercator, like a normal web map. No account or token. It draws
+  only when something changes, at pixel ratio 1, to stay light on modest graphics cards.
 - **Base maps:** a dark street map (Esri Dark Gray Canvas) and satellite imagery (Esri World
   Imagery), with labels. Both are keyless tiles, checked live on 2026-10-24. CARTO's dark tiles
   were tried first but now return an "API key required" image.
-- **3D only when close up:** the 3D flood view and the underground view switch the scene to 3D
-  for a window a few kilometres across, which looks flat anyway, and switch back to the same map
-  view on exit.
+- **Tiles we draw ourselves** (replay water, roads and buildings; terrain from our height grid)
+  go through one custom `fs://` protocol (`web/src/lib/maplibre.ts`).
 
 ### Phase 2: 3D flood view
-- **Terrain:** the DEM window becomes Cesium terrain. Heights are DEM + EGM2008 geoid, so the
-  water and the ground share one surface. The chosen base map is draped over it.
+- **Terrain:** the DEM window becomes MapLibre terrain, served as Terrarium tiles drawn from the
+  height grid; outside the window the ground eases to the window's median height and the map is
+  dimmed. Heights can be drawn ×1, ×2 or ×4 (labelled). The chosen base map is draped over it.
 - **1-in-N year:** the JRC depth raster is used directly, so water surface = ground + depth.
 - **Today and forecast days:**
   - A Gumbel curve (L-moments) is fitted to yearly peak flows at the GloFAS cell, 1997 to last
@@ -141,11 +150,10 @@ Every source was checked live before building against it (2026-10-21 to 2026-10-
 - **Custom +X m:** a connected flood fill runs in a Web Worker. Seeds are permanent water,
   trimmed to the local water surface. Water spreads 8-neighbour, each cell takes the nearest
   seed's level + X, and isolated hollows stay dry.
-- **Water mesh:** built in the worker as a GLB. A Cesium `CustomShader` draws the depth colours,
-  ripples and the rise animation on the GPU.
+- **Water:** one pixel per terrain cell in a canvas, draped on the terrain and coloured by depth;
+  the rise animation repaints it.
 - **Readouts:** hover depth with a human scale; flooded area counts water at least 5 cm deep;
-  and max depth. Building counts came from Cesium OSM Buildings, which needed Cesium ion, so they
-  were removed with it.
+  and max depth.
 
 ### Phase 3: underground
 - **Soil moisture:** the latest ERA5 day for 0–7, 7–28, 28–100 and 100–255 cm, ranked against
@@ -157,9 +165,8 @@ Every source was checked live before building against it (2026-10-21 to 2026-10-
   outside ERA5's whole record (Lagos did).
 - **Groundwater:** the nearest EA borehole with a reading in the last week, within 25 km. Depth is
   the borehole datum minus the level.
-- **Underground view:** the ground turns see-through around the point and the camera can go below
-  ground. The soil cut-away is drawn ×20 deeper and labelled so; the water table is drawn at its
-  true depth.
+- **Cut-away diagram:** two columns, each to its own true scale and labelled: the four soil layers
+  coloured by wetness, and the water table at the borehole's depth.
 
 ### Phase 4: AI
 - **4a, forecast model (`ml/`):**
@@ -192,11 +199,31 @@ Every source was checked live before building against it (2026-10-21 to 2026-10-
 - **Time step:** chosen on the GPU each step, from the deepest cell (CFL).
 - **Sources and edges:** rain minus a constant infiltration rate, plus river inflow where the
   river crosses the window's higher edge. Water leaves freely at the edges.
-- **Display:** depth is read back about twice a second and meshed in the worker.
+- **Display:** depth is read back about twice a second, counted in the worker and painted as water.
 - **Reference implementation:** `web/src/lib/sim/swe.ts` is the CPU version of the same maths.
   Its tests check a still lake stays still, mass is conserved, rain/inflow/outflow balance, and
   depth never goes negative.
 - **Fallback:** without WebGPU, the tab explains this and offers the Phase 2 fill.
+
+### Storm replay
+- **Grid:** ~60 m cells (2″ north-south) up to 20 km across. FABDEM's native 30 m pixels are read
+  inside the remote zip (its table of contents is read first, so a network error is never taken
+  for open sea). A cell that is mostly water is water; a shoreline cell keeps the height of its
+  land part.
+- **Sea and lagoon:** water cells joined to the window edge, plus specks of ≤ 3 cells inside them
+  (stakes, boats). They are held at the tide each hour. Water drains into them only while it
+  stands higher, so a high tide holds water back; the sea never flows onto land (the coast's
+  height is only good to a metre or two and has no sea walls).
+- **Rain:** hourly, on a 4×4 grid of points, spread bilinearly; optional ×1.5–×3 scaling because
+  weather models smear storms. Drains remove a set rate (default 5 mm/h), less near the sea.
+- **Water:** the same local-inertial scheme as Phase 5, vectorised with numpy, with a limiter so
+  no cell gives more than it holds (the water balance closes exactly in tests).
+- **Counts each hour:** land with 10 cm or more; buildings whose square has 10 cm or more ("water
+  at the door"); road length at 10 cm and 30 cm.
+- **Speed:** a 5 km area over 4 days takes about 30 s on the server; one simulation runs at a
+  time. Results are saved in `api/.cache/replay/<id>/`; forecast replays are keyed by day.
+- **Map:** a Web Worker draws each 256 px tile (water, wet roads, buildings when zoomed in) and
+  each hour is swapped in only once its tiles are drawn.
 
 **Caching:** disk cache in `api/.cache`, keyed by tile, pixel or cell plus date. Errors are
 never cached.
@@ -205,7 +232,7 @@ never cached.
 
 ```bash
 cd api && uv run pytest && uv run ruff check . && uv run mypy floodscope tests
-uv run pytest -m live          # real APIs: point and scene for London, Lagos, Dhaka, New Orleans
+uv run pytest -m live          # real APIs: point and scene for 4 cities, storm replays for Lagos and Nairobi
 ```
 
 ```bash
@@ -242,6 +269,14 @@ cd web && npm test && npm run lint && npm run typecheck && npm run build
   - Infiltration is one constant rate.
   - No-data (sea) cells act as walls.
   - It is an illustration of how water spreads, not a forecast.
+- **Storm replay:**
+  - Weather-model rain is spread out; real downpours are often stronger locally, so the rain
+    multiplier is a setting, not a calibration. No gauge correction is applied.
+  - Drain capacity is unknown anywhere; it is a setting. Blocked drains, pumps, walls and
+    defences are not modelled, and rivers flowing in from outside the area are not included.
+  - 60 m cells: a building counts as having water at the door when its cell has 10 cm or more.
+    Bridges count as flooded when the ground under them is.
+  - FABDEM is non-commercial (CC BY-NC-SA 4.0).
 - **Base map tiles come from Esri's public services.** They need no key, but Esri's terms apply
   (attribution, and an ArcGIS account for commercial use). The first world view can take a few
   seconds to draw on a slow connection.

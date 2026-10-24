@@ -13,7 +13,12 @@ interface Props {
   units: UnitSystem;
 }
 
-export default function PointPanel({ data, units, onOpen3D }: Props & { onOpen3D?: () => void }) {
+export default function PointPanel({
+  data,
+  units,
+  onOpen3D,
+  onReplay,
+}: Props & { onOpen3D?: () => void; onReplay?: () => void }) {
   const can3D = data.elevation.status === "ok";
   return (
     <div className="space-y-3">
@@ -25,6 +30,16 @@ export default function PointPanel({ data, units, onOpen3D }: Props & { onOpen3D
           className="w-full rounded-lg bg-[var(--series-1)] px-4 py-2.5 text-sm font-medium text-white shadow hover:brightness-110 disabled:opacity-40"
         >
           Open 3D flood view
+        </button>
+      )}
+      {onReplay && (
+        <button
+          onClick={onReplay}
+          disabled={!can3D}
+          title={can3D ? undefined : "No land here (open sea)"}
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2.5 text-sm font-medium hover:text-[var(--text-primary)] disabled:opacity-40"
+        >
+          Replay a storm here, hour by hour
         </button>
       )}
       <ElevationSection data={data} units={units} />

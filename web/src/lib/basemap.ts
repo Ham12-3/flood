@@ -1,12 +1,13 @@
-import type * as CesiumNS from "cesium";
-import type { Cesium } from "@/lib/cesium";
+import type { StyleSpecification } from "maplibre-gl";
+import type { MLMap } from "@/lib/maplibre";
 
 export type BasemapId = "map" | "satellite";
 
 interface TileLayer {
+  id: string;
   url: string;
-  maximumLevel: number;
-  credit: string;
+  maxzoom: number;
+  attribution: string;
 }
 
 /**
@@ -16,63 +17,60 @@ interface TileLayer {
  */
 const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services";
 const ESRI_CANVAS_CREDIT = "Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS user community";
-const LABELS: TileLayer = {
-  url: `${ESRI}/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}`,
-  maximumLevel: 16,
-  credit: ESRI_CANVAS_CREDIT,
+const LAYERS: Record<"dark" | "imagery" | "labels", TileLayer> = {
+  dark: {
+    id: "base-dark",
+    url: `${ESRI}/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`,
+    maxzoom: 16,
+    attribution: ESRI_CANVAS_CREDIT,
+  },
+  imagery: {
+    id: "base-imagery",
+    url: `${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`,
+    maxzoom: 19,
+    attribution: "Esri, Maxar, Earthstar Geographics, and the GIS user community",
+  },
+  labels: {
+    id: "base-labels",
+    url: `${ESRI}/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}`,
+    maxzoom: 16,
+    attribution: ESRI_CANVAS_CREDIT,
+  },
 };
 
 export const BASEMAPS: Record<BasemapId, { label: string; layers: TileLayer[] }> = {
-  map: {
-    label: "Map",
-    layers: [
-      {
-        url: `${ESRI}/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`,
-        maximumLevel: 16,
-        credit: ESRI_CANVAS_CREDIT,
-      },
-      LABELS,
-    ],
-  },
-  satellite: {
-    label: "Satellite",
-    layers: [
-      {
-        url: `${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`,
-        maximumLevel: 19,
-        credit: "Esri, Maxar, Earthstar Geographics, and the GIS user community",
-      },
-      LABELS,
-    ],
-  },
+  map: { label: "Map", layers: [LAYERS.dark, LAYERS.labels] },
+  satellite: { label: "Satellite", layers: [LAYERS.imagery, LAYERS.labels] },
 };
 
-/**
- * Keeps the basemap at the bottom of the imagery stack, so overlays added later
- * (the satellite water map in the 3D view) stay on top when the basemap changes.
- */
-export class Basemap {
-  private readonly C: Cesium;
-  private readonly viewer: CesiumNS.Viewer;
-  private layers: CesiumNS.ImageryLayer[] = [];
+/** The overlay layers the app adds go above this one. */
+export const LABELS_LAYER = LAYERS.labels.id;
 
-  constructor(C: Cesium, viewer: CesiumNS.Viewer) {
-    this.C = C;
-    this.viewer = viewer;
-  }
+/** Every base layer is in the style; switching base maps only changes visibility. */
+export function baseStyle(id: BasemapId): StyleSpecification {
+  const shown = new Set(BASEMAPS[id].layers.map((l) => l.id));
+  const all = Object.values(LAYERS);
+  return {
+    version: 8,
+    sources: Object.fromEntries(
+      all.map((l) => [l.id, { type: "raster", tiles: [l.url], tileSize: 256, maxzoom: l.maxzoom, attribution: l.attribution }]),
+    ),
+    layers: [
+      { id: "background", type: "background", paint: { "background-color": "#1f1f1f" } },
+      ...all.map((l) => ({
+        id: l.id,
+        type: "raster" as const,
+        source: l.id,
+        layout: { visibility: shown.has(l.id) ? ("visible" as const) : ("none" as const) },
+        paint: { "raster-fade-duration": 0 },
+      })),
+    ],
+  };
+}
 
-  set(id: BasemapId): void {
-    const { C, viewer } = this;
-    if (viewer.isDestroyed()) return;
-    for (const layer of this.layers) viewer.imageryLayers.remove(layer, true);
-    this.layers = BASEMAPS[id].layers.map((l, i) => {
-      const provider = new C.UrlTemplateImageryProvider({
-        url: l.url,
-        maximumLevel: l.maximumLevel,
-        credit: new C.Credit(l.credit),
-      });
-      return viewer.imageryLayers.addImageryProvider(provider, i);
-    });
-    viewer.scene.requestRender(); // the map only redraws on request
+export function setBasemap(map: MLMap, id: BasemapId): void {
+  const shown = new Set(BASEMAPS[id].layers.map((l) => l.id));
+  for (const l of Object.values(LAYERS)) {
+    if (map.getLayer(l.id)) map.setLayoutProperty(l.id, "visibility", shown.has(l.id) ? "visible" : "none");
   }
 }
