@@ -1,4 +1,4 @@
-"""Single-pixel windowed reads from local or remote GeoTIFFs.
+"""Windowed reads from local or remote GeoTIFFs: single pixels and small mosaics.
 
 Remote files are opened through GDAL's /vsicurl/, which uses HTTP range requests,
 so we only fetch the file header and the one internal tile that holds the pixel.
@@ -9,7 +9,10 @@ from dataclasses import dataclass
 
 import numpy as np
 import rasterio
+from affine import Affine
+from rasterio.enums import Resampling
 from rasterio.errors import RasterioIOError
+from rasterio.merge import merge
 from rasterio.windows import Window
 
 GDAL_ENV = {
@@ -60,3 +63,42 @@ def read_pixel(path: str, lat: float, lon: float, user_agent: str = "") -> Pixel
             return PixelRead(value, True, res_x, res_y)
     except RasterioIOError as exc:
         raise RasterReadError(f"Could not read {path.removeprefix('/vsicurl/')}: {exc}") from exc
+
+
+Bounds = tuple[float, float, float, float]  # west, south, east, north
+
+
+@dataclass(frozen=True)
+class WindowRead:
+    data: np.ndarray  # 2-D float32, NaN where there is no data; row 0 is north
+    transform: Affine
+
+
+def read_window(
+    paths: list[str], bounds: Bounds, res: tuple[float, float], user_agent: str = ""
+) -> WindowRead:
+    """Mosaic a lat/lon window from one or more rasters at the given resolution.
+
+    Pixels missing from every source (or equal to a source's nodata) come back as NaN.
+    """
+    env = dict(GDAL_ENV)
+    if user_agent:
+        env["GDAL_HTTP_USERAGENT"] = user_agent
+    try:
+        with rasterio.Env(**env):
+            sources = [rasterio.open(p) for p in paths]
+            try:
+                arr, transform = merge(
+                    sources,
+                    bounds=bounds,
+                    res=res,
+                    nodata=np.nan,
+                    dtype="float32",
+                    resampling=Resampling.nearest,
+                )
+            finally:
+                for s in sources:
+                    s.close()
+    except RasterioIOError as exc:
+        raise RasterReadError(f"Could not read window: {exc}") from exc
+    return WindowRead(arr[0].astype("float32"), transform)

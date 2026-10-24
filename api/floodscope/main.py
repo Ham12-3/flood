@@ -7,11 +7,14 @@ from typing import Annotated
 import httpx
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from floodscope.cache import ResponseCache
 from floodscope.config import get_settings
-from floodscope.models import GeocodeResponse, PointResponse
+from floodscope.grid import MAX_SIZE_KM, MIN_SIZE_KM
+from floodscope.models import GeocodeResponse, PointResponse, SceneResponse
 from floodscope.point import build_point
+from floodscope.scene import build_scene
 from floodscope.sources.geocode import search_places
 
 
@@ -40,6 +43,8 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+# Scene grids are a few MB of base64; they compress well.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 Lat = Annotated[float, Query(ge=-90, le=90, description="Latitude, WGS84 degrees")]
 Lon = Annotated[float, Query(ge=-180, le=180, description="Longitude, WGS84 degrees")]
@@ -55,6 +60,19 @@ async def point(request: Request, lat: Lat, lon: Lon) -> PointResponse:
     """Everything we know about one point: elevation, river flow, hazard depths, UK gauges."""
     return await build_point(
         lat, lon, request.app.state.http, request.app.state.cache, get_settings()
+    )
+
+
+@app.get("/api/scene", response_model=SceneResponse)
+async def scene(
+    request: Request,
+    lat: Lat,
+    lon: Lon,
+    size_km: Annotated[float, Query(ge=MIN_SIZE_KM, le=MAX_SIZE_KM)] = 4.0,
+) -> SceneResponse:
+    """Terrain window, hazard depth grids and forecast flood scenarios for the 3D view."""
+    return await build_scene(
+        lat, lon, size_km, request.app.state.http, request.app.state.cache, get_settings()
     )
 
 

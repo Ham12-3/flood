@@ -15,7 +15,7 @@ import httpx
 from floodscope.cache import ResponseCache
 from floodscope.geo import copernicus_tile_name, pixel_size_m
 from floodscope.models import Elevation, SourceInfo
-from floodscope.raster import RasterReadError, gdal_path, read_pixel
+from floodscope.raster import RasterReadError, WindowRead, gdal_path, read_pixel, read_window
 
 
 def tile_url(base_url: str, tile: str) -> str:
@@ -98,3 +98,14 @@ async def get_elevation(
         return Elevation(
             status="error", reason=f"Elevation unavailable: {exc}", tile=tile, source=source_info()
         )
+
+
+def read_dem_window(
+    base_url: str,
+    tiles: list[str],
+    bounds: tuple[float, float, float, float],
+    res: tuple[float, float],
+    user_agent: str = "",
+) -> WindowRead:
+    paths = [gdal_path(base_url, f"{t}/{t}.tif") for t in tiles]
+    return read_window(paths, bounds, res, user_agent)

@@ -13,9 +13,20 @@ interface Props {
   units: UnitSystem;
 }
 
-export default function PointPanel({ data, units }: Props) {
+export default function PointPanel({ data, units, onOpen3D }: Props & { onOpen3D?: () => void }) {
+  const can3D = data.elevation.status === "ok";
   return (
     <div className="space-y-3">
+      {onOpen3D && (
+        <button
+          onClick={onOpen3D}
+          disabled={!can3D}
+          title={can3D ? undefined : "No terrain here (open sea)"}
+          className="w-full rounded-lg bg-[var(--series-1)] px-4 py-2.5 text-sm font-medium text-white shadow hover:brightness-110 disabled:opacity-40"
+        >
+          Open 3D flood view
+        </button>
+      )}
       <ElevationSection data={data} units={units} />
       <RiverSection data={data} units={units} />
       <HazardSection data={data} units={units} />

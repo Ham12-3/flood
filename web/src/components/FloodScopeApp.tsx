@@ -6,6 +6,7 @@ import { fetchPoint, type Place, type PointResponse } from "@/lib/api";
 import { formatLatLon } from "@/lib/format";
 import type { UnitSystem } from "@/lib/units";
 import AboutDialog from "./AboutDialog";
+import FloodView from "./FloodView";
 import type { GlobeHandle } from "./Globe";
 import PointPanel from "./PointPanel";
 import SearchBox from "./SearchBox";
@@ -64,6 +65,8 @@ export default function FloodScopeApp() {
   const units = useSyncExternalStore(subscribeUnits, readUnits, () => "metric" as const);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
+  const [floodMode, setFloodMode] = useState(false);
+  const getViewer = useCallback(() => globe.current?.getViewer() ?? null, []);
   const abort = useRef<AbortController | null>(null);
 
   const inspect = useCallback((sel: Selection) => {
@@ -90,7 +93,7 @@ export default function FloodScopeApp() {
 
   return (
     <main className="fixed inset-0 overflow-hidden bg-[var(--surface-0)] text-[var(--text-primary)]">
-      <Globe ref={globe} selected={selected} onPick={onPick} />
+      <Globe ref={globe} selected={selected} interactive={!floodMode} onPick={onPick} />
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start gap-3 p-3 sm:p-4">
         <div className="pointer-events-auto flex min-w-0 flex-1 flex-wrap items-center gap-3">
@@ -130,6 +133,7 @@ export default function FloodScopeApp() {
         >
           <div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-3">
             <div className="min-w-0 flex-1">
+              {floodMode && <p className="text-xs font-medium uppercase tracking-wide text-[var(--series-1)]">3D flood view</p>}
               {selected.label && <p className="truncate text-sm font-medium">{selected.label}</p>}
               <p className="text-xs tabular-nums text-[var(--text-secondary)]">{formatLatLon(selected.lat, selected.lon)}</p>
             </div>
@@ -143,6 +147,7 @@ export default function FloodScopeApp() {
             <button
               onClick={() => {
                 abort.current?.abort();
+                setFloodMode(false);
                 setSelected(null);
                 setLoad({ state: "idle" });
               }}
@@ -153,8 +158,8 @@ export default function FloodScopeApp() {
             </button>
           </div>
           <div className={`flex-1 overflow-y-auto p-3 pb-16 sm:pb-3 ${panelOpen ? "" : "hidden sm:block"}`}>
-            {load.state === "loading" && <LoadingState />}
-            {load.state === "error" && (
+            {!floodMode && load.state === "loading" && <LoadingState />}
+            {!floodMode && load.state === "error" && (
               <div role="alert" className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-4 text-sm">
                 <p className="font-medium">Couldn&apos;t load data for this point</p>
                 <p className="mt-1 text-[var(--text-secondary)]">{load.message}</p>
@@ -163,7 +168,20 @@ export default function FloodScopeApp() {
                 </button>
               </div>
             )}
-            {load.state === "done" && <PointPanel data={load.data} units={units} />}
+            {floodMode ? (
+              <FloodView
+                lat={selected.lat}
+                lon={selected.lon}
+                units={units}
+                getViewer={getViewer}
+                onExit={() => {
+                  setFloodMode(false);
+                  globe.current?.flyTo(selected.lat, selected.lon);
+                }}
+              />
+            ) : (
+              load.state === "done" && <PointPanel data={load.data} units={units} onOpen3D={() => setFloodMode(true)} />
+            )}
           </div>
         </aside>
       )}

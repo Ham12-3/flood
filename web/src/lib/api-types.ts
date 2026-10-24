@@ -41,6 +41,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/scene": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Scene
+         * @description Terrain window, hazard depth grids and forecast flood scenarios for the 3D view.
+         */
+        get: operations["scene_api_scene_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/geocode": {
         parameters: {
             query?: never;
@@ -86,6 +106,13 @@ export interface components {
             ensemble_p25: number | null;
             /** Ensemble P75 */
             ensemble_p75: number | null;
+        };
+        /** DischargeForRP */
+        DischargeForRP: {
+            /** Return Period */
+            return_period: number;
+            /** Discharge */
+            discharge: number;
         };
         /** EAReading */
         EAReading: {
@@ -208,6 +235,47 @@ export interface components {
             note: string;
             source: components["schemas"]["SourceInfo"];
         };
+        /** ForecastScenario */
+        ForecastScenario: {
+            /**
+             * Day
+             * @description 0 = today
+             */
+            day: number;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Discharge
+             * @description Ensemble mean, or the main run if missing
+             */
+            discharge: number | null;
+            /**
+             * Discharge Low
+             * @description Ensemble 25th percentile
+             */
+            discharge_low: number | null;
+            /**
+             * Discharge High
+             * @description Ensemble 75th percentile
+             */
+            discharge_high: number | null;
+            /** Return Period */
+            return_period: number | null;
+            /** Return Period Low */
+            return_period_low: number | null;
+            /** Return Period High */
+            return_period_high: number | null;
+            /** @description Null when the flow is below the 1-in-10 map (in banks) */
+            maps: components["schemas"]["MapBlend"] | null;
+            /**
+             * Beyond Largest Map
+             * @default false
+             */
+            beyond_largest_map: boolean;
+        };
         /** GeocodeResponse */
         GeocodeResponse: {
             /** Query */
@@ -235,6 +303,39 @@ export interface components {
             depth_m: number | null;
             /** Flooded */
             flooded: boolean;
+        };
+        /** HazardLayer */
+        HazardLayer: {
+            /**
+             * Return Period
+             * @enum {integer}
+             */
+            return_period: 10 | 20 | 50 | 75 | 100 | 200 | 500;
+            /**
+             * Depth Cm U16
+             * @description base64 little-endian uint16 depth in cm; 0 = dry
+             */
+            depth_cm_u16: string;
+            /** Flooded Cells */
+            flooded_cells: number;
+        };
+        /**
+         * MapBlend
+         * @description Which hazard maps to show: lower + weight * (upper - lower), in log return period.
+         */
+        MapBlend: {
+            /**
+             * Lower
+             * @enum {integer}
+             */
+            lower: 10 | 20 | 50 | 75 | 100 | 200 | 500;
+            /**
+             * Upper
+             * @enum {integer}
+             */
+            upper: 10 | 20 | 50 | 75 | 100 | 200 | 500;
+            /** Weight */
+            weight: number;
         };
         /** Place */
         Place: {
@@ -270,6 +371,38 @@ export interface components {
             hazard: components["schemas"]["FloodHazard"];
             uk_live: components["schemas"]["UKLive"];
         };
+        /** ReturnPeriodFitInfo */
+        ReturnPeriodFitInfo: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "no_data" | "error";
+            /** Reason */
+            reason: string | null;
+            /**
+             * Method
+             * @default Gumbel distribution fitted by L-moments to calendar-year maximum daily flow
+             */
+            method: string;
+            /** Grid Lat */
+            grid_lat: number | null;
+            /** Grid Lon */
+            grid_lon: number | null;
+            /** First Year */
+            first_year: number | null;
+            /** Last Year */
+            last_year: number | null;
+            /** N Years */
+            n_years: number | null;
+            /** Location */
+            location: number | null;
+            /** Scale */
+            scale: number | null;
+            /** Thresholds */
+            thresholds: components["schemas"]["DischargeForRP"][];
+            source: components["schemas"]["SourceInfo"];
+        };
         /** RiverDischarge */
         RiverDischarge: {
             /**
@@ -301,6 +434,125 @@ export interface components {
             /** Forecast */
             forecast: components["schemas"]["DischargeDay"][];
             source: components["schemas"]["SourceInfo"];
+        };
+        /** SceneDem */
+        SceneDem: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "no_data" | "error";
+            /** Reason */
+            reason: string | null;
+            /**
+             * Heights F32
+             * @description base64 little-endian float32, metres above EGM2008; NaN = no data (sea)
+             */
+            heights_f32: string | null;
+            /** Min M */
+            min_m: number | null;
+            /** Max M */
+            max_m: number | null;
+            source: components["schemas"]["SourceInfo"];
+        };
+        /**
+         * SceneGrid
+         * @description Regular lat/lon grid. Arrays are row-major with row 0 at the north edge.
+         */
+        SceneGrid: {
+            /** West */
+            west: number;
+            /** South */
+            south: number;
+            /** East */
+            east: number;
+            /** North */
+            north: number;
+            /** Nx */
+            nx: number;
+            /** Ny */
+            ny: number;
+            /** Dx Deg */
+            dx_deg: number;
+            /** Dy Deg */
+            dy_deg: number;
+            /**
+             * Cell Size M
+             * @description (east-west, north-south) metres
+             */
+            cell_size_m: [
+                number,
+                number
+            ];
+        };
+        /** SceneHazard */
+        SceneHazard: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "no_data" | "error";
+            /** Reason */
+            reason: string | null;
+            /** Layers */
+            layers: components["schemas"]["HazardLayer"][];
+            /**
+             * Permanent Water U8
+             * @description base64 uint8 mask, 1 = permanent water (river or lake)
+             */
+            permanent_water_u8: string | null;
+            /**
+             * Permanent Water Cells
+             * @default 0
+             */
+            permanent_water_cells: number;
+            /**
+             * Spurious Depth In Window
+             * @default false
+             */
+            spurious_depth_in_window: boolean;
+            /**
+             * Note
+             * @default JRC depths are on a 90 m grid, sampled onto the 30 m terrain grid (nearest cell). Modelled without flood defences.
+             */
+            note: string;
+            source: components["schemas"]["SourceInfo"];
+        };
+        /** SceneResponse */
+        SceneResponse: {
+            /** Lat */
+            lat: number;
+            /** Lon */
+            lon: number;
+            /** Size Km */
+            size_km: number;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Disclaimer
+             * @default Estimates for exploration. Not an official flood warning.
+             */
+            disclaimer: string;
+            grid: components["schemas"]["SceneGrid"];
+            /**
+             * Geoid Offset M
+             * @description EGM2008 geoid height N at the window centre: ellipsoid h = DEM + N
+             */
+            geoid_offset_m: number | null;
+            dem: components["schemas"]["SceneDem"];
+            hazard: components["schemas"]["SceneHazard"];
+            river: components["schemas"]["RiverDischarge"];
+            fit: components["schemas"]["ReturnPeriodFitInfo"];
+            /** Scenarios */
+            scenarios: components["schemas"]["ForecastScenario"][];
+            /**
+             * Scenario Basis
+             * @default The river cell's forecast flow is converted to a return period with the fitted curve, then the two nearest JRC maps are blended in log return period. The same flood size is applied to the whole window, so tributaries may differ.
+             */
+            scenario_basis: string;
         };
         /**
          * SourceInfo
@@ -415,6 +667,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PointResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    scene_api_scene_get: {
+        parameters: {
+            query: {
+                /** @description Latitude, WGS84 degrees */
+                lat: number;
+                /** @description Longitude, WGS84 degrees */
+                lon: number;
+                size_km?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SceneResponse"];
                 };
             };
             /** @description Validation Error */

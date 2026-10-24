@@ -12,6 +12,9 @@ export type EAWarning = components["schemas"]["EAWarning"];
 export type SourceInfo = components["schemas"]["SourceInfo"];
 export type Place = components["schemas"]["Place"];
 export type GeocodeResponse = components["schemas"]["GeocodeResponse"];
+export type SceneResponse = components["schemas"]["SceneResponse"];
+export type ForecastScenario = components["schemas"]["ForecastScenario"];
+export type ReturnPeriodFitInfo = components["schemas"]["ReturnPeriodFitInfo"];
 
 export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000").replace(
   /\/$/,
@@ -51,6 +54,14 @@ async function getJson<T>(path: string, params: Record<string, string>, signal?:
 
 export function fetchPoint(lat: number, lon: number, signal?: AbortSignal): Promise<PointResponse> {
   return getJson<PointResponse>("/api/point", { lat: lat.toFixed(5), lon: lon.toFixed(5) }, signal);
+}
+
+export function fetchScene(lat: number, lon: number, sizeKm: number, signal?: AbortSignal): Promise<SceneResponse> {
+  return getJson<SceneResponse>(
+    "/api/scene",
+    { lat: lat.toFixed(5), lon: lon.toFixed(5), size_km: String(sizeKm) },
+    signal,
+  );
 }
 
 export function geocode(query: string, signal?: AbortSignal): Promise<GeocodeResponse> {

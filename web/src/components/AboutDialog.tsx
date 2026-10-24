@@ -110,6 +110,10 @@ export default function AboutDialog({ open, onClose }: Props) {
           <li>Hazard maps cover river floods only, not coastal surges or surface water from heavy rain.</li>
           <li>GloFAS uses ~5 km cells and follows the main river in each cell; small streams are not modelled.</li>
           <li>Open-Meteo&apos;s GloFAS history starts around 1997 in our checks, not 1984.</li>
+          <li>
+            3D view: forecast days are turned into flood maps through a flood-frequency curve fitted to about 29 years of
+            peaks, so rare floods are uncertain. &quot;Custom +X m&quot; is a connected fill, not a flow simulation.
+          </li>
         </ul>
       </div>
     </dialog>

@@ -152,3 +152,26 @@ async def get_river_discharge(
         return RiverDischarge(
             status="error", reason=f"River discharge unavailable: {exc}", source=source_info()
         )
+
+
+HISTORY_START = date(1984, 1, 1)  # documented start; data actually begins ~1997
+
+
+async def get_history(
+    client: httpx.AsyncClient, url: str, lat: float, lon: float, end: date
+) -> list[tuple[date, float | None]]:
+    """Daily GloFAS reanalysis discharge for one cell, from the documented start to `end`."""
+    params = {
+        "latitude": f"{lat:.5f}",
+        "longitude": f"{lon:.5f}",
+        "daily": "river_discharge",
+        "start_date": HISTORY_START.isoformat(),
+        "end_date": end.isoformat(),
+        "timezone": "GMT",
+    }
+    resp = await client.get(url, params=params, timeout=60)
+    resp.raise_for_status()
+    daily = resp.json().get("daily") or {}
+    times: list[str] = daily.get("time") or []
+    values: list[float | None] = daily.get("river_discharge") or [None] * len(times)
+    return [(date.fromisoformat(t), v) for t, v in zip(times, values, strict=False)]

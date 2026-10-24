@@ -14,11 +14,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
+import numpy as np
 
 from floodscope.cache import ResponseCache
 from floodscope.geo import point_in_bbox
+from floodscope.grid import sample_at
 from floodscope.models import RETURN_PERIODS, FloodHazard, HazardDepth, SourceInfo
-from floodscope.raster import RasterReadError, gdal_path, read_pixel
+from floodscope.raster import RasterReadError, gdal_path, read_pixel, read_window
 
 JRC_VERSION = "2.1.2"
 EXTENTS_KEY = f"jrc:{JRC_VERSION}:tile_extents"
@@ -131,3 +133,30 @@ async def get_hazard(
         return FloodHazard(
             status="error", reason=f"Flood hazard maps unavailable: {exc}", source=source_info()
         )
+
+
+JRC_RES = 1.0 / 1200.0  # 3 arc-seconds
+
+
+def tiles_for_bounds(tiles: list[Tile], bounds: tuple[float, float, float, float]) -> list[str]:
+    west, south, east, north = bounds
+    return [
+        name for name, (w, s, e, n) in tiles if w < east and e > west and s < north and n > south
+    ]
+
+
+def read_layer_on_grid(
+    base_url: str,
+    relative_paths: list[str],
+    bounds: tuple[float, float, float, float],
+    lons: np.ndarray,
+    lats: np.ndarray,
+    user_agent: str = "",
+) -> np.ndarray:
+    """Read one JRC layer around `bounds` at native 90 m and sample it at the given cells."""
+    west, south, east, north = bounds
+    pad = (west - JRC_RES, south - JRC_RES, east + JRC_RES, north + JRC_RES)
+    window = read_window(
+        [gdal_path(base_url, p) for p in relative_paths], pad, (JRC_RES, JRC_RES), user_agent
+    )
+    return sample_at(window.data, tuple(window.transform), lons, lats)

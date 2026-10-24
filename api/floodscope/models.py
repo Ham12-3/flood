@@ -168,3 +168,128 @@ class GeocodeResponse(ApiModel):
     query: str
     results: list[Place]
     source: SourceInfo
+
+
+# --- Phase 2: terrain window for the 3D flood view --------------------------------
+
+
+class SceneGrid(ApiModel):
+    """Regular lat/lon grid. Arrays are row-major with row 0 at the north edge."""
+
+    west: float
+    south: float
+    east: float
+    north: float
+    nx: int
+    ny: int
+    dx_deg: float
+    dy_deg: float
+    cell_size_m: tuple[float, float] = Field(description="(east-west, north-south) metres")
+
+
+class SceneDem(ApiModel):
+    status: Status
+    reason: str | None = None
+    heights_f32: str | None = Field(
+        default=None,
+        description="base64 little-endian float32, metres above EGM2008; NaN = no data (sea)",
+    )
+    min_m: float | None = None
+    max_m: float | None = None
+    source: SourceInfo
+
+
+class HazardLayer(ApiModel):
+    return_period: ReturnPeriod
+    depth_cm_u16: str = Field(description="base64 little-endian uint16 depth in cm; 0 = dry")
+    flooded_cells: int
+
+
+class SceneHazard(ApiModel):
+    status: Status
+    reason: str | None = None
+    layers: list[HazardLayer] = Field(default_factory=list)
+    permanent_water_u8: str | None = Field(
+        default=None, description="base64 uint8 mask, 1 = permanent water (river or lake)"
+    )
+    permanent_water_cells: int = 0
+    spurious_depth_in_window: bool = False
+    note: str = (
+        "JRC depths are on a 90 m grid, sampled onto the 30 m terrain grid (nearest cell). "
+        "Modelled without flood defences."
+    )
+    source: SourceInfo
+
+
+class DischargeForRP(ApiModel):
+    return_period: int
+    discharge: float
+
+
+class ReturnPeriodFitInfo(ApiModel):
+    status: Status
+    reason: str | None = None
+    method: str = "Gumbel distribution fitted by L-moments to calendar-year maximum daily flow"
+    grid_lat: float | None = None
+    grid_lon: float | None = None
+    first_year: int | None = None
+    last_year: int | None = None
+    n_years: int | None = None
+    location: float | None = None
+    scale: float | None = None
+    thresholds: list[DischargeForRP] = Field(default_factory=list)
+    source: SourceInfo
+
+
+class MapBlend(ApiModel):
+    """Which hazard maps to show: lower + weight * (upper - lower), in log return period."""
+
+    lower: ReturnPeriod
+    upper: ReturnPeriod
+    weight: float
+
+
+class ForecastScenario(ApiModel):
+    day: int = Field(description="0 = today")
+    date: date
+    discharge: float | None = Field(description="Ensemble mean, or the main run if missing")
+    discharge_low: float | None = Field(default=None, description="Ensemble 25th percentile")
+    discharge_high: float | None = Field(default=None, description="Ensemble 75th percentile")
+    return_period: float | None = None
+    return_period_low: float | None = None
+    return_period_high: float | None = None
+    maps: MapBlend | None = Field(
+        default=None, description="Null when the flow is below the 1-in-10 map (in banks)"
+    )
+    beyond_largest_map: bool = False
+
+
+class SceneResponse(ApiModel):
+    lat: float
+    lon: float
+    size_km: float
+    generated_at: datetime
+    disclaimer: str = DISCLAIMER
+    grid: SceneGrid
+    geoid_offset_m: float | None = Field(
+        description="EGM2008 geoid height N at the window centre: ellipsoid h = DEM + N"
+    )
+    dem: SceneDem
+    hazard: SceneHazard
+    river: RiverDischarge
+    fit: ReturnPeriodFitInfo
+    scenarios: list[ForecastScenario] = Field(default_factory=list)
+    scenario_basis: str = (
+        "The river cell's forecast flow is converted to a return period with the fitted "
+        "curve, then the two nearest JRC maps are blended in log return period. The same "
+        "flood size is applied to the whole window, so tributaries may differ."
+    )
+
+
+class SceneStatic(ApiModel):
+    """The cacheable part of a scene: terrain and hazard grids for one window."""
+
+    grid: SceneGrid
+    geoid_offset_m: float | None
+    dem: SceneDem
+    hazard: SceneHazard

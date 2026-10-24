@@ -6,27 +6,32 @@ import { loadCesium, type Cesium } from "@/lib/cesium";
 
 export interface GlobeHandle {
   flyTo(lat: number, lon: number, heightM?: number): void;
+  getViewer(): { C: Cesium; viewer: CesiumNS.Viewer } | null;
 }
 
 interface GlobeProps {
   ref?: Ref<GlobeHandle>;
   selected: { lat: number; lon: number } | null;
+  /** When false, clicks are ignored (the 3D flood view handles its own input). */
+  interactive?: boolean;
   onPick(lat: number, lon: number): void;
 }
 
 const ION_TOKEN = process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN ?? "";
 const MARKER_ID = "floodscope-selected";
 
-export default function Globe({ ref, selected, onPick }: GlobeProps) {
+export default function Globe({ ref, selected, interactive = true, onPick }: GlobeProps) {
   const container = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<CesiumNS.Viewer | null>(null);
   const cesiumRef = useRef<Cesium | null>(null);
   const onPickRef = useRef(onPick);
+  const interactiveRef = useRef(interactive);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     onPickRef.current = onPick;
-  }, [onPick]);
+    interactiveRef.current = interactive;
+  }, [onPick, interactive]);
 
   useEffect(() => {
     let destroyed = false;
@@ -67,6 +72,7 @@ export default function Globe({ ref, selected, onPick }: GlobeProps) {
 
         handler = new C.ScreenSpaceEventHandler(viewer.scene.canvas);
         handler.setInputAction((event: CesiumNS.ScreenSpaceEventHandler.PositionedEvent) => {
+          if (!interactiveRef.current) return;
           const ray = viewer.camera.getPickRay(event.position);
           const cartesian =
             (ray && viewer.scene.globe.pick(ray, viewer.scene)) ??
@@ -117,6 +123,11 @@ export default function Globe({ ref, selected, onPick }: GlobeProps) {
         const C = cesiumRef.current;
         if (!viewer || !C) return;
         viewer.camera.flyTo({ destination: C.Cartesian3.fromDegrees(lon, lat, heightM), duration: 2 });
+      },
+      getViewer() {
+        const viewer = viewerRef.current;
+        const C = cesiumRef.current;
+        return viewer && C && !viewer.isDestroyed() ? { C, viewer } : null;
       },
     }),
     [],

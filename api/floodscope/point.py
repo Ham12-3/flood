@@ -1,7 +1,7 @@
 """Builds the /api/point response by querying every source in parallel."""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import httpx
 
@@ -14,6 +14,10 @@ from floodscope.sources import dem, ea, flood, hazard
 JRC_GRID = 1200
 
 
+def river_cache_key(lat: float, lon: float, today: date) -> str:
+    return f"flood:glofas:{lat:.3f}:{lon:.3f}:{today.isoformat()}"
+
+
 def _ok(block: Elevation | RiverDischarge | FloodHazard | UKLive) -> bool:
     # Cache real answers ("ok" or a genuine "no_data"), never transient errors.
     return block.status != "error"
@@ -22,7 +26,7 @@ def _ok(block: Elevation | RiverDischarge | FloodHazard | UKLive) -> bool:
 async def build_point(
     lat: float, lon: float, client: httpx.AsyncClient, cache: ResponseCache, settings: Settings
 ) -> PointResponse:
-    today = datetime.now(UTC).date().isoformat()
+    today = datetime.now(UTC).date()
     ua = settings.user_agent
 
     elevation_task = cache.get_or_fetch(
@@ -35,7 +39,7 @@ async def build_point(
         _ok,
     )
     river_task = cache.get_or_fetch(
-        f"flood:glofas:{lat:.3f}:{lon:.3f}:{today}",
+        river_cache_key(lat, lon, today),
         RiverDischarge,
         lambda: flood.get_river_discharge(client, settings.open_meteo_flood_url, lat, lon),
         settings.ttl_forecast,

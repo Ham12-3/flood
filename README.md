@@ -8,8 +8,8 @@ flood could get, and live Environment Agency gauges in England.
 > [Check for flooding](https://check-for-flooding.service.gov.uk/). Elsewhere, follow your
 > national meteorological or hydrological agency.
 
-**Status:** Phase 1 (globe, click, side panel, `/api/point`). The 3D flood view, the underground
-view and the AI prediction come in later phases.
+**Status:** Phase 1 (globe, click, side panel, `/api/point`) and Phase 2 (3D flood view,
+`/api/scene`) are built. The underground view and the AI prediction come in later phases.
 
 ## Layout
 
@@ -63,6 +63,17 @@ Every block has:
 - `source`: name, provider, resolution, data date, licence and retrieval time. The UI prints
   this under every section.
 
+`GET /api/scene?lat=51.4938&lon=-0.2288&size_km=4` (1 to 10 km) returns the terrain window for
+the 3D view (`SceneResponse`):
+
+- **Terrain:** the GLO-30 heights on their native ~30 m grid (base64 float32, row 0 north),
+  plus the EGM2008 geoid height at the window centre.
+- **Hazard:** depth grids for all 7 return periods (uint16 cm) and the permanent-water mask,
+  both sampled onto that grid.
+- **River:** the river forecast, a flood-frequency fit, and one scenario per forecast day.
+
+It is a few hundred kB gzipped for 4 km and about 3 MB for 10 km.
+
 `GET /api/geocode?q=Dhaka` handles place search. `GET /api/health` is a liveness check.
 
 The frontend types in `web/src/lib/api-types.ts` are generated from the OpenAPI schema. After
@@ -95,15 +106,43 @@ How each source is used:
   (up to 6, with typical range and record high), warnings within 10 km, and marks readings
   older than 24 h as stale.
 
+How the 3D flood view works (Phase 2):
+
+- **Terrain:** the scene's DEM becomes the ground through a `CustomHeightmapTerrainProvider`,
+  and the globe is clipped to the window. Heights are DEM + geoid (EGM2008 via PROJ's CDN), so
+  water and ground use the same surface.
+- **Return periods:** these use the JRC depth raster directly (water surface = ground +
+  depth). JRC's 90 m cells show as blocks on the 30 m terrain.
+- **Today and forecast days:** we fit a Gumbel curve (L-moments) to calendar-year peak flows at
+  the GloFAS cell. Open-Meteo has 1997 to last year, about 29 years. Each day's ensemble-mean
+  flow is converted to a return period, with the ensemble 25th–75th percentiles as a range. The
+  two nearest JRC maps are then blended, linearly in log return period. Below 1-in-10 there is
+  no flood map, so only permanent water is shown ("in its banks"). Above 1-in-500 the 500-year
+  map is shown with a warning.
+- **Custom +X m:** a connected flood fill in a Web Worker (`web/src/lib/flood/floodfill.ts`).
+  - Seeds are permanent-water cells. The JRC mask is first trimmed to cells whose ground is at
+    the local water surface, because its 90 m edge cells often land on banks or rooftops.
+  - Water spreads 8-neighbour through ground below the level. Each cell takes the level of the
+    *nearest* seed that can reach it (seed surface + X), so a sloping river rises evenly.
+  - Hollows cut off by higher ground stay dry.
+- **Water rendering:** the worker builds a GLB mesh, which Cesium renders with a
+  `CustomShader`. The shader handles the depth colour ramp (one blue hue), ripples and the rise
+  animation on the GPU.
+- **Readouts:** hovering shows depth plus a human scale (ankle, knee, waist, head, one storey,
+  two storeys). Stats show flooded land area (excluding permanent water), max depth, and
+  buildings touched. The building count is the number of Cesium OSM Buildings whose centre is in
+  water, and it needs the ion token.
+
 **Caching:** disk cache in `api/.cache` using diskcache. Keys are tile or pixel plus date:
-DEM and JRC values for 30 days, forecasts for 6 h, EA for 5 min. Errors are never cached.
+DEM and JRC values and scene grids for 30 days, flood-curve fits for 30 days, forecasts for
+6 h, EA for 5 min. Errors are never cached.
 
 ## Tests and checks
 
 ```bash
 cd api
 uv run pytest            # unit tests on recorded real API responses and local GeoTIFFs
-uv run pytest -m live    # London, Lagos, Dhaka and New Orleans against the real APIs
+uv run pytest -m live    # /api/point and /api/scene for London, Lagos, Dhaka, New Orleans
 uv run ruff check . && uv run ruff format --check . && uv run mypy floodscope tests
 ```
 
@@ -134,9 +173,19 @@ npm test && npm run lint && npm run typecheck
 - **The JRC tiles aren't formal COGs** (no overviews), but they are internally tiled, so
   range reads work.
 - **The EA covers England only.** Wales (NRW) and Scotland (SEPA) are not wired in.
+- **Defences again, in 3D:** New Orleans shows about 70% of a 4 km window under water at
+  1-in-10, because the JRC maps don't model levees.
+- **One flood size for the whole window.** Forecast scenarios use the clicked river cell's
+  return period everywhere in the window, so tributaries can differ.
+- **Gumbel fits on ~29 years** are uncertain beyond about 1-in-100. Today's flows at the four
+  test cities are all around 1-in-1 year, so "Today" shows rivers within their banks.
+- **Custom +X m is a fill, not a flow model.** It ignores how long water takes to arrive and
+  how much there is. Phase 5's shallow-water solver addresses that.
+- **OSM building heights** sit on Cesium World Terrain, not our DEM, so buildings can look
+  slightly sunk or raised. Counts only include tiles loaded so far; zoom in to load more.
 
 ## Not yet verified (need keys)
 
-Cesium ion (needs your token), Google Photorealistic 3D Tiles, the Google Flood Forecasting
+Cesium ion and Cesium OSM Buildings (need your token), Google Photorealistic 3D Tiles, the Google Flood Forecasting
 API (waitlist key) and the Claude API. These belong to later phases and will be checked when
 they're built.

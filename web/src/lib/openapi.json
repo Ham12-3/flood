@@ -84,6 +84,75 @@
         }
       }
     },
+    "/api/scene": {
+      "get": {
+        "summary": "Scene",
+        "description": "Terrain window, hazard depth grids and forecast flood scenarios for the 3D view.",
+        "operationId": "scene_api_scene_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "description": "Latitude, WGS84 degrees",
+              "title": "Lat"
+            },
+            "description": "Latitude, WGS84 degrees"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "description": "Longitude, WGS84 degrees",
+              "title": "Lon"
+            },
+            "description": "Longitude, WGS84 degrees"
+          },
+          {
+            "name": "size_km",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 10.0,
+              "minimum": 1.0,
+              "default": 4.0,
+              "title": "Size Km"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SceneResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/geocode": {
       "get": {
         "summary": "Geocode",
@@ -226,6 +295,24 @@
           "ensemble_p75"
         ],
         "title": "DischargeDay"
+      },
+      "DischargeForRP": {
+        "properties": {
+          "return_period": {
+            "type": "integer",
+            "title": "Return Period"
+          },
+          "discharge": {
+            "type": "number",
+            "title": "Discharge"
+          }
+        },
+        "type": "object",
+        "required": [
+          "return_period",
+          "discharge"
+        ],
+        "title": "DischargeForRP"
       },
       "EAReading": {
         "properties": {
@@ -659,6 +746,119 @@
         ],
         "title": "FloodHazard"
       },
+      "ForecastScenario": {
+        "properties": {
+          "day": {
+            "type": "integer",
+            "title": "Day",
+            "description": "0 = today"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "discharge": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discharge",
+            "description": "Ensemble mean, or the main run if missing"
+          },
+          "discharge_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discharge Low",
+            "description": "Ensemble 25th percentile"
+          },
+          "discharge_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discharge High",
+            "description": "Ensemble 75th percentile"
+          },
+          "return_period": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Period"
+          },
+          "return_period_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Period Low"
+          },
+          "return_period_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Period High"
+          },
+          "maps": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MapBlend"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the flow is below the 1-in-10 map (in banks)"
+          },
+          "beyond_largest_map": {
+            "type": "boolean",
+            "title": "Beyond Largest Map",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "date",
+          "discharge",
+          "discharge_low",
+          "discharge_high",
+          "return_period",
+          "return_period_low",
+          "return_period_high",
+          "maps",
+          "beyond_largest_map"
+        ],
+        "title": "ForecastScenario"
+      },
       "GeocodeResponse": {
         "properties": {
           "query": {
@@ -736,6 +936,81 @@
           "flooded"
         ],
         "title": "HazardDepth"
+      },
+      "HazardLayer": {
+        "properties": {
+          "return_period": {
+            "type": "integer",
+            "enum": [
+              10,
+              20,
+              50,
+              75,
+              100,
+              200,
+              500
+            ],
+            "title": "Return Period"
+          },
+          "depth_cm_u16": {
+            "type": "string",
+            "title": "Depth Cm U16",
+            "description": "base64 little-endian uint16 depth in cm; 0 = dry"
+          },
+          "flooded_cells": {
+            "type": "integer",
+            "title": "Flooded Cells"
+          }
+        },
+        "type": "object",
+        "required": [
+          "return_period",
+          "depth_cm_u16",
+          "flooded_cells"
+        ],
+        "title": "HazardLayer"
+      },
+      "MapBlend": {
+        "properties": {
+          "lower": {
+            "type": "integer",
+            "enum": [
+              10,
+              20,
+              50,
+              75,
+              100,
+              200,
+              500
+            ],
+            "title": "Lower"
+          },
+          "upper": {
+            "type": "integer",
+            "enum": [
+              10,
+              20,
+              50,
+              75,
+              100,
+              200,
+              500
+            ],
+            "title": "Upper"
+          },
+          "weight": {
+            "type": "number",
+            "title": "Weight"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lower",
+          "upper",
+          "weight"
+        ],
+        "title": "MapBlend",
+        "description": "Which hazard maps to show: lower + weight * (upper - lower), in log return period."
       },
       "Place": {
         "properties": {
@@ -829,6 +1104,138 @@
           "uk_live"
         ],
         "title": "PointResponse"
+      },
+      "ReturnPeriodFitInfo": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method",
+            "default": "Gumbel distribution fitted by L-moments to calendar-year maximum daily flow"
+          },
+          "grid_lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grid Lat"
+          },
+          "grid_lon": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grid Lon"
+          },
+          "first_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Year"
+          },
+          "last_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Year"
+          },
+          "n_years": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N Years"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "scale": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale"
+          },
+          "thresholds": {
+            "items": {
+              "$ref": "#/components/schemas/DischargeForRP"
+            },
+            "type": "array",
+            "title": "Thresholds"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "method",
+          "grid_lat",
+          "grid_lon",
+          "first_year",
+          "last_year",
+          "n_years",
+          "location",
+          "scale",
+          "thresholds",
+          "source"
+        ],
+        "title": "ReturnPeriodFitInfo"
       },
       "RiverDischarge": {
         "properties": {
@@ -927,6 +1334,297 @@
           "source"
         ],
         "title": "RiverDischarge"
+      },
+      "SceneDem": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "heights_f32": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heights F32",
+            "description": "base64 little-endian float32, metres above EGM2008; NaN = no data (sea)"
+          },
+          "min_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min M"
+          },
+          "max_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max M"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "heights_f32",
+          "min_m",
+          "max_m",
+          "source"
+        ],
+        "title": "SceneDem"
+      },
+      "SceneGrid": {
+        "properties": {
+          "west": {
+            "type": "number",
+            "title": "West"
+          },
+          "south": {
+            "type": "number",
+            "title": "South"
+          },
+          "east": {
+            "type": "number",
+            "title": "East"
+          },
+          "north": {
+            "type": "number",
+            "title": "North"
+          },
+          "nx": {
+            "type": "integer",
+            "title": "Nx"
+          },
+          "ny": {
+            "type": "integer",
+            "title": "Ny"
+          },
+          "dx_deg": {
+            "type": "number",
+            "title": "Dx Deg"
+          },
+          "dy_deg": {
+            "type": "number",
+            "title": "Dy Deg"
+          },
+          "cell_size_m": {
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Cell Size M",
+            "description": "(east-west, north-south) metres"
+          }
+        },
+        "type": "object",
+        "required": [
+          "west",
+          "south",
+          "east",
+          "north",
+          "nx",
+          "ny",
+          "dx_deg",
+          "dy_deg",
+          "cell_size_m"
+        ],
+        "title": "SceneGrid",
+        "description": "Regular lat/lon grid. Arrays are row-major with row 0 at the north edge."
+      },
+      "SceneHazard": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "no_data",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "layers": {
+            "items": {
+              "$ref": "#/components/schemas/HazardLayer"
+            },
+            "type": "array",
+            "title": "Layers"
+          },
+          "permanent_water_u8": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permanent Water U8",
+            "description": "base64 uint8 mask, 1 = permanent water (river or lake)"
+          },
+          "permanent_water_cells": {
+            "type": "integer",
+            "title": "Permanent Water Cells",
+            "default": 0
+          },
+          "spurious_depth_in_window": {
+            "type": "boolean",
+            "title": "Spurious Depth In Window",
+            "default": false
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": "JRC depths are on a 90 m grid, sampled onto the 30 m terrain grid (nearest cell). Modelled without flood defences."
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "layers",
+          "permanent_water_u8",
+          "permanent_water_cells",
+          "spurious_depth_in_window",
+          "note",
+          "source"
+        ],
+        "title": "SceneHazard"
+      },
+      "SceneResponse": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lon": {
+            "type": "number",
+            "title": "Lon"
+          },
+          "size_km": {
+            "type": "number",
+            "title": "Size Km"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "Estimates for exploration. Not an official flood warning."
+          },
+          "grid": {
+            "$ref": "#/components/schemas/SceneGrid"
+          },
+          "geoid_offset_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geoid Offset M",
+            "description": "EGM2008 geoid height N at the window centre: ellipsoid h = DEM + N"
+          },
+          "dem": {
+            "$ref": "#/components/schemas/SceneDem"
+          },
+          "hazard": {
+            "$ref": "#/components/schemas/SceneHazard"
+          },
+          "river": {
+            "$ref": "#/components/schemas/RiverDischarge"
+          },
+          "fit": {
+            "$ref": "#/components/schemas/ReturnPeriodFitInfo"
+          },
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/ForecastScenario"
+            },
+            "type": "array",
+            "title": "Scenarios"
+          },
+          "scenario_basis": {
+            "type": "string",
+            "title": "Scenario Basis",
+            "default": "The river cell's forecast flow is converted to a return period with the fitted curve, then the two nearest JRC maps are blended in log return period. The same flood size is applied to the whole window, so tributaries may differ."
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lon",
+          "size_km",
+          "generated_at",
+          "disclaimer",
+          "grid",
+          "geoid_offset_m",
+          "dem",
+          "hazard",
+          "river",
+          "fit",
+          "scenarios",
+          "scenario_basis"
+        ],
+        "title": "SceneResponse"
       },
       "SourceInfo": {
         "properties": {
